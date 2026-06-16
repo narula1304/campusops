@@ -1,0 +1,464 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  STUDENT
+  FACULTY
+  MAINTENANCE
+  SECURITY
+  ADMIN
+}
+
+enum StaffState {
+  ACTIVE
+  UNDER_REVIEW
+  SUSPENDED
+}
+
+enum AdminLevel {
+  HOD
+  DEAN
+  SUPERADMIN
+}
+
+enum IncidentCategory {
+  MAINTENANCE
+  SECURITY
+  INFRASTRUCTURE
+  CLEANLINESS
+  EMERGENCY
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  ESCALATED
+  REOPENED
+  CLOSED
+}
+
+enum AssignmentStrategy {
+  LEAST_LOADED
+  ROUND_ROBIN
+  SHIFT_AWARE
+  MANUAL
+}
+
+enum AlertType {
+  EMERGENCY
+  ANNOUNCEMENT
+  MAINTENANCE_SHUTDOWN
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertTarget {
+  CAMPUS
+  DEPARTMENT
+  ROLE
+}
+
+enum NotificationType {
+  INCIDENT_UPDATE
+  ASSIGNMENT
+  ALERT
+  FEEDBACK_REQUEST
+  ESCALATION
+  PANIC
+  HOTSPOT
+  STAFF_REVIEW
+}
+
+enum Sentiment {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
+// ─────────────────────────────────────────
+// USER & DEPARTMENT
+// ─────────────────────────────────────────
+
+model User {
+  id               String      @id @default(uuid())
+  name             String
+  email            String      @unique
+  passwordHash     String
+  role             Role
+  isActive         Boolean     @default(true)
+  refreshTokenHash String?
+  failedLoginCount Int         @default(0)
+  lockedUntil      DateTime?
+
+  // Notification preferences
+  prefRealtime     Boolean     @default(true)
+  prefEmail        Boolean     @default(true)
+  prefSms          Boolean     @default(false)
+
+  // Student fields
+  rollNo           String?
+  year             Int?
+  batch            String?
+
+  // Faculty + Staff shared
+  employeeId       String?
+  designation      String?
+
+  // MaintenanceStaff fields
+  specialization   String[]    @default([])
+  activeTaskCount  Int         @default(0)
+  staffState       StaffState  @default(ACTIVE)
+  penaltyCount     Int         @default(0)
+  shiftDays        String[]    @default([])
+  shiftStart       String?
+  shiftEnd         String?
+
+  // SecurityOfficer fields
+  badgeNumber      String?
+  zone             String?
+
+  // Admin fields
+  accessLevel      AdminLevel?
+
+  // Relations
+  departmentId             String?
+  department               Department?          @relation("UserDepartment", fields: [departmentId], references: [id])
+  managedDepartments       DepartmentAdmin[]
+  createdIncidents         Incident[]           @relation("IncidentCreator")
+  assignedIncidents        Incident[]           @relation("IncidentAssignee")
+  escalatedIncidents       Incident[]           @relation("IncidentEscalatedTo")
+  statusLogsAuthored       IncidentStatusLog[]
+  assignmentsMade          IncidentAssignment[] @relation("AssignedBy")
+  assignmentsReceived      IncidentAssignment[] @relation("AssignedTo")
+  notifications            Notification[]
+  sentMessages             Message[]
+  chatRooms                ChatParticipant[]
+  panicAcknowledgements    PanicAcknowledgement[]
+  createdAlerts            Alert[]
+  auditLogsActed           AuditLog[]
+
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([role, departmentId])
+  @@index([role, staffState])
+  @@index([email])
+}
+
+model Department {
+  id                 String             @id @default(uuid())
+  name               String             @unique
+  code               String             @unique
+  assignmentStrategy AssignmentStrategy @default(LEAST_LOADED)
+  roundRobinIndex    Int                @default(0)
+  headFacultyId      String?
+
+  users              User[]             @relation("UserDepartment")
+  incidents          Incident[]
+  adminAccess        DepartmentAdmin[]
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+}
+
+model DepartmentAdmin {
+  userId       String
+  departmentId String
+  user         User       @relation(fields: [userId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+
+  @@id([userId, departmentId])
+}
+
+// ─────────────────────────────────────────
+// INCIDENT
+// ─────────────────────────────────────────
+
+model Incident {
+  id              String           @id @default(uuid())
+  incidentNumber  String           @unique
+
+  title           String
+  description     String
+  category        IncidentCategory
+  priority        Priority
+  status          IncidentStatus   @default(OPEN)
+
+  // Location (denormalized — always queried with incident)
+  locationBlock   String
+  locationRoom    String?
+  locationFloor   Int?
+  locationLat     Float?
+  locationLng     Float?
+  locationDesc    String?
+
+  // Photos (PostgreSQL native array)
+  evidencePhotos  String[]         @default([])
+  resolutionPhoto String?
+
+  // Foreign keys
+  creatorId       String
+  creator         User             @relation("IncidentCreator", fields: [creatorId], references: [id])
+  assignedToId    String?
+  assignedTo      User?            @relation("IncidentAssignee", fields: [assignedToId], references: [id])
+  departmentId    String
+  department      Department       @relation(fields: [departmentId], references: [id])
+
+  // SLA
+  slaWindowHours  Int
+  slaDeadlineAt   DateTime
+  slaIsEscalated  Boolean          @default(false)
+  slaEscalatedAt  DateTime?
+  slaEscalatedToId String?
+  slaEscalatedTo  User?            @relation("IncidentEscalatedTo", fields: [slaEscalatedToId], references: [id])
+  slaJobId        String?
+
+  // Resolution
+  resolutionNote  String?
+  resolvedAt      DateTime?
+
+  // Duplicate tracking
+  isDuplicate     Boolean          @default(false)
+  duplicateOfId   String?
+  duplicateOf     Incident?        @relation("Duplicates", fields: [duplicateOfId], references: [id])
+  duplicates      Incident[]       @relation("Duplicates")
+  duplicateCount  Int              @default(0)
+
+  // Panic-specific
+  panicLat        Float?
+  panicLng        Float?
+  panicBroadcastedAt DateTime?
+
+  // AI metadata
+  aiSuggestedCategory  String?
+  aiSuggestedPriority  String?
+  aiSuggestedDept      String?
+  aiConfidence         Float?
+  aiSuggestionAccepted Boolean?
+
+  // AI escalation suggestion
+  aiEscSuggestion      String?
+  aiEscReason          String?
+  aiEscUrgency         String?
+  aiEscSuggestedAt     DateTime?
+  aiEscReviewedByAdmin Boolean     @default(false)
+
+  // Relations
+  statusLogs        IncidentStatusLog[]
+  assignmentHistory IncidentAssignment[]
+  feedback          IncidentFeedback?
+  chatRoom          ChatRoom?
+  notifications     Notification[]
+  panicAcks         PanicAcknowledgement[]
+  auditLogs         AuditLog[]
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Indexes — designed for the most common query patterns
+  @@index([status, departmentId])                              // dashboard by dept
+  @@index([status, assignedToId])                             // staff dashboard
+  @@index([slaDeadlineAt, status])                            // SLA monitoring
+  @@index([locationBlock, locationRoom, category, createdAt]) // duplicate detection + hotspot
+  @@index([creatorId, createdAt(sort: Desc)])                 // my incidents
+  @@index([priority, status])                                 // priority filter
+  @@index([createdAt(sort: Desc)])                            // latest first
+}
+
+// APPEND-ONLY — never UPDATE rows, only INSERT
+// This is the tamper-proof audit trail
+model IncidentStatusLog {
+  id          String         @id @default(uuid())
+  incidentId  String
+  incident    Incident       @relation(fields: [incidentId], references: [id])
+  status      IncidentStatus
+  changedById String?
+  changedBy   User?          @relation(fields: [changedById], references: [id])
+  note        String?
+  changedAt   DateTime       @default(now())
+
+  @@index([incidentId, changedAt])
+}
+
+model IncidentAssignment {
+  id           String   @id @default(uuid())
+  incidentId   String
+  incident     Incident @relation(fields: [incidentId], references: [id])
+  assignedToId String
+  assignedTo   User     @relation("AssignedTo", fields: [assignedToId], references: [id])
+  assignedById String
+  assignedBy   User     @relation("AssignedBy", fields: [assignedById], references: [id])
+  strategy     String
+  reason       String?
+  assignedAt   DateTime @default(now())
+
+  @@index([incidentId])
+  @@index([assignedToId])
+}
+
+model IncidentFeedback {
+  id              String    @id @default(uuid())
+  incidentId      String    @unique
+  incident        Incident  @relation(fields: [incidentId], references: [id])
+  score           Int
+  comment         String?
+  sentiment       Sentiment?
+  issueTags       String[]  @default([])
+  aiSummary       String?
+  reopenTriggered Boolean   @default(false)
+  submittedAt     DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────
+// CHAT
+// ─────────────────────────────────────────
+
+model ChatRoom {
+  id         String           @id @default(uuid())
+  incidentId String           @unique
+  incident   Incident         @relation(fields: [incidentId], references: [id])
+  isActive   Boolean          @default(true)
+  closedAt   DateTime?
+  createdAt  DateTime         @default(now())
+
+  participants ChatParticipant[]
+  messages     Message[]
+}
+
+model ChatParticipant {
+  userId   String
+  roomId   String
+  user     User     @relation(fields: [userId], references: [id])
+  room     ChatRoom @relation(fields: [roomId], references: [id])
+  joinedAt DateTime @default(now())
+
+  @@id([userId, roomId])
+}
+
+model Message {
+  id            String   @id @default(uuid())
+  roomId        String
+  room          ChatRoom @relation(fields: [roomId], references: [id])
+  senderId      String
+  sender        User     @relation(fields: [senderId], references: [id])
+  text          String?
+  attachmentUrl String?
+  createdAt     DateTime @default(now())
+
+  readReceipts  MessageReadReceipt[]
+
+  @@index([roomId, createdAt])
+}
+
+model MessageReadReceipt {
+  messageId String
+  userId    String
+  readAt    DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id])
+
+  @@id([messageId, userId])
+}
+
+// ─────────────────────────────────────────
+// ALERTS & NOTIFICATIONS
+// ─────────────────────────────────────────
+
+model Alert {
+  id                String        @id @default(uuid())
+  title             String
+  message           String
+  type              AlertType
+  severity          AlertSeverity
+  createdById       String
+  createdBy         User          @relation(fields: [createdById], references: [id])
+  scopeTarget       AlertTarget
+  scopeDepartmentId String?
+  scopeRole         String?
+  deliveryChannels  String[]      @default([])
+  isRetracted       Boolean       @default(false)
+  retractedAt       DateTime?
+  createdAt         DateTime      @default(now())
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  recipientId String
+  recipient   User             @relation(fields: [recipientId], references: [id])
+  type        NotificationType
+  title       String
+  body        String
+  incidentId  String?
+  incident    Incident?        @relation(fields: [incidentId], references: [id])
+  alertId     String?
+  isRead      Boolean          @default(false)
+  deliveredVia String[]        @default([])
+  createdAt   DateTime         @default(now())
+
+  @@index([recipientId, isRead, createdAt(sort: Desc)])
+}
+
+model PanicAcknowledgement {
+  incidentId     String
+  officerId      String
+  incident       Incident @relation(fields: [incidentId], references: [id])
+  officer        User     @relation(fields: [officerId], references: [id])
+  acknowledgedAt DateTime @default(now())
+
+  @@id([incidentId, officerId])
+}
+
+// ─────────────────────────────────────────
+// ANALYTICS & AI
+// ─────────────────────────────────────────
+
+model DailySummary {
+  id            String   @id @default(uuid())
+  date          String   @unique
+  totalNew      Int
+  totalResolved Int
+  slaBreaches   Int
+  criticalOpen  Int
+  hotspots      Json
+  summary       String
+  generatedAt   DateTime @default(now())
+}
+
+// APPEND-ONLY audit log — Command pattern logging lands here
+model AuditLog {
+  id          String    @id @default(uuid())
+  commandType String
+  actorId     String
+  actor       User      @relation(fields: [actorId], references: [id])
+  incidentId  String?
+  incident    Incident? @relation(fields: [incidentId], references: [id])
+  payload     Json
+  createdAt   DateTime  @default(now())
+
+  @@index([actorId, createdAt(sort: Desc)])
+  @@index([incidentId])
+}
