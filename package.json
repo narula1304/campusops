@@ -3,17 +3,17 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-"scripts": {
-  "dev": "nodemon src/index.js",
-  "start": "node src/index.js",
-  "build": "npx prisma generate",
-  "migrate": "npx prisma migrate deploy",
-  "migrate:dev": "npx prisma migrate dev",
-  "studio": "npx prisma studio",
-  "test": "jest --testPathPatterns=tests/unit",
-  "test:integration": "jest --testPathPattern=tests/integration --runInBand",
-  "test:all": "jest"
-},
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "build": "npx prisma generate",
+    "migrate": "npx prisma migrate deploy",
+    "migrate:dev": "npx prisma migrate dev",
+    "studio": "npx prisma studio",
+    "test": "jest --testPathPatterns=tests/unit",
+    "test:integration": "jest --testPathPattern=tests/integration --runInBand",
+    "test:all": "jest"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/narula1304/campusops.git"
@@ -48,6 +48,7 @@
   },
   "devDependencies": {
     "jest": "^30.4.2",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }
