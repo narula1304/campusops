@@ -38,6 +38,7 @@ const wireObservers = require('./domain/observers/wireObservers')
 
 // ── Services ─────────────────────────────────────────────────────────────────
 const IncidentService = require('./services/IncidentService')
+const { createSLAWorker } = require('./jobs/workers/slaWorker')
 
 // ── API layer ────────────────────────────────────────────────────────────────
 const incidentRoutes = require('./api/routes/incidentRoutes')
@@ -136,7 +137,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     // Must be registered LAST — Express identifies error handlers by arity (4 args)
     app.use(errorHandler)
 
-    return app
+    return { app, incidentRepo, eventPublisher }
 }
 
 /**
@@ -155,7 +156,10 @@ function startServer() {
         cors: { origin: process.env.CORS_ORIGIN || '*' },
     })
 
-    const app = buildApp({ io, redis, slaQueue, mailer })
+    const { app, incidentRepo, eventPublisher } = buildApp({ io, redis, slaQueue, mailer })
+
+    // ── SLA escalation worker ──────────────────────────────────────────────────
+    const slaWorker = createSLAWorker({ incidentRepo, eventPublisher, redis })
 
     // Attach the Express app as the http.Server's request handler.
     // (Socket.IO needs the raw http.Server to set up its own upgrade handling
@@ -173,6 +177,7 @@ function startServer() {
     const shutdown = async (signal) => {
         console.log(`\n${signal} received — shutting down gracefully`)
         httpServer.close(() => console.log('HTTP server closed'))
+        await slaWorker.close()
         await slaQueue.close()
         redis.disconnect()
         await prisma.$disconnect()

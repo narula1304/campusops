@@ -10,7 +10,7 @@
 //   • The only 4xx response built directly in this file is 404 NOT_FOUND,
 //     because a null return from the service is a legitimate "not found"
 //     outcome, not an exception.
-//
+
 // Arrow function class properties are used for all handlers so that `this`
 // is correctly bound even when Express holds a bare reference to the function
 // (i.e. router.get('/', controller.listIncidents) works without .bind()).

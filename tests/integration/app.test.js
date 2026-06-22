@@ -136,7 +136,11 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     // Must be registered LAST — Express identifies error handlers by arity (4 args)
     app.use(errorHandler)
 
-    return app
+    return {
+        app,
+        incidentRepo,
+        eventPublisher,
+    }
 }
 
 /**
@@ -155,7 +159,7 @@ function startServer() {
         cors: { origin: process.env.CORS_ORIGIN || '*' },
     })
 
-    const app = buildApp({ io, redis, slaQueue, mailer })
+    const { app, incidentRepo, eventPublisher } = buildApp({ io, redis, slaQueue, mailer })
 
     // Attach the Express app as the http.Server's request handler.
     // (Socket.IO needs the raw http.Server to set up its own upgrade handling

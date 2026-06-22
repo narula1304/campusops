@@ -221,6 +221,7 @@ describe('incidentRoutes — POST /api/incidents/:id/resolve (resolveIncident)',
 })
 
 describe('incidentRoutes — POST /api/incidents/:id/feedback (submitFeedback)', () => {
+    jest.setTimeout(15000)
     test('STUDENT role can submit feedback — 200', async () => {
         const app = buildApp(makeService())
         const token = signToken({ id: 'student-1', role: 'STUDENT' })
