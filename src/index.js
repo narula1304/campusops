@@ -42,6 +42,7 @@ const { createSLAWorker } = require('./jobs/workers/slaWorker')
 
 // ── API layer ────────────────────────────────────────────────────────────────
 const incidentRoutes = require('./api/routes/incidentRoutes')
+const authRoutes    = require('./api/routes/authRoutes')
 const errorHandler = require('./api/middleware/errorHandler')
 
 /**
@@ -132,6 +133,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
         res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
     })
 
+    app.use('/api/auth',      authRoutes(prismaClient, process.env.JWT_SECRET))
     app.use('/api/incidents', incidentRoutes(incidentService))
 
     // Must be registered LAST — Express identifies error handlers by arity (4 args)
