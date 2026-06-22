@@ -9,7 +9,7 @@
 //
 // Reference: SYSTEM_DESIGN.md Section 2 (Folder Structure)
 
-const { PrismaClient } = require('../../generated/prisma/client')
+const { PrismaClient } = require('@prisma/client')
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
