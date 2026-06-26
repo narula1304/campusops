@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import * as authApi from '../api/auth';
+import useSocket from '../hooks/useSocket';
 
 const AuthContext = createContext(null);
 
@@ -47,13 +48,19 @@ export default function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // Socket.IO — driven by the auth state owned here to avoid circular deps
+  const isAuthenticated = Boolean(token);
+  const { socket, on } = useSocket({ token, isAuthenticated });
+
   const value = {
     user,
     token,
     login,
     logout,
-    isAuthenticated: Boolean(token),
+    isAuthenticated,
     isLoading,
+    socket,
+    on,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

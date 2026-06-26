@@ -42,7 +42,7 @@ const { createSLAWorker } = require('./jobs/workers/slaWorker')
 
 // ── API layer ────────────────────────────────────────────────────────────────
 const incidentRoutes = require('./api/routes/incidentRoutes')
-const authRoutes    = require('./api/routes/authRoutes')
+const authRoutes = require('./api/routes/authRoutes')
 const errorHandler = require('./api/middleware/errorHandler')
 
 /**
@@ -122,6 +122,8 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
         departmentRepo,
     })
 
+    const userRoutes = require('./api/routes/userRoutes')
+    
     // ── Express app ──────────────────────────────────────────────────────────
     const app = express()
 
@@ -133,7 +135,8 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
         res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() })
     })
 
-    app.use('/api/auth',      authRoutes(prismaClient, process.env.JWT_SECRET))
+    app.use('/api/auth', authRoutes(prismaClient, process.env.JWT_SECRET))
+    app.use('/api/users', userRoutes(prismaClient))
     app.use('/api/incidents', incidentRoutes(incidentService))
 
     // Must be registered LAST — Express identifies error handlers by arity (4 args)
@@ -156,6 +159,43 @@ function startServer() {
 
     const io = new SocketIOServer(httpServer, {
         cors: { origin: process.env.CORS_ORIGIN || '*' },
+    })
+
+    // ── Socket.IO JWT authentication ────────────────────────────────────────────
+    const jwt = require('jsonwebtoken')
+    io.use((socket, next) => {
+        const token = socket.handshake.auth?.token
+        if (!token) {
+            return next(new Error('Authentication required'))
+        }
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET)
+            socket.user = decoded  // attach user to socket for room joining
+            next()
+        } catch (err) {
+            next(new Error('Invalid token'))
+        }
+    })
+
+    // ── Socket.IO connection handler ─────────────────────────────────────────────
+    io.on('connection', (socket) => {
+        const user = socket.user
+        console.log(`[Socket.IO] ${user.name} (${user.role}) connected`)
+
+        // Join user's personal room
+        socket.join(`user:${user.id}`)
+
+        // Join role room
+        socket.join(`role:${user.role}`)
+
+        // Join department room if applicable
+        if (user.departmentId) {
+            socket.join(`dept:${user.departmentId}`)
+        }
+
+        socket.on('disconnect', () => {
+            console.log(`[Socket.IO] ${user.name} disconnected`)
+        })
     })
 
     const { app, incidentRepo, eventPublisher } = buildApp({ io, redis, slaQueue, mailer })

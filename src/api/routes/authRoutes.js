@@ -11,8 +11,10 @@
 //   app.use('/api/auth', authRoutes(prismaClient, process.env.JWT_SECRET))
 //
 // Route table (all paths relative to the /api/auth mount point):
-//   POST /login  — public (no authenticate)  → authController.login
-//   GET  /me     — authenticate required     → authController.getMe
+//   POST /register  — public (no authenticate)  → authController.register
+//   POST /login     — public (no authenticate)  → authController.login
+//   POST /logout    — authenticate required     → authController.logout
+//   GET  /me        — authenticate required     → authController.getMe
 
 const { Router } = require('express')
 const AuthController = require('../controllers/authController')
@@ -27,9 +29,19 @@ module.exports = function authRoutes(prisma, jwtSecret) {
     const router     = Router()
     const controller = new AuthController(prisma, jwtSecret)
 
-    // ── POST /login ──────────────────────────────────────────────────────────
-    // Public endpoint — no authenticate middleware.
+    // ── POST /register ────────────────────────────────────────────────────────
+    // Public — no authenticate middleware.
+    // Creates a new user account and returns a JWT on success.
+    router.post('/register', controller.register)
+
+    // ── POST /login ───────────────────────────────────────────────────────────
+    // Public — no authenticate middleware.
+    // Verifies credentials; enforces lockout after 5 failed attempts.
     router.post('/login', controller.login)
+
+    // ── POST /logout ──────────────────────────────────────────────────────────
+    // Requires a valid JWT. Stateless — client clears its own localStorage token.
+    router.post('/logout', authenticate, controller.logout)
 
     // ── GET /me ───────────────────────────────────────────────────────────────
     // Requires a valid JWT; authenticate populates req.user before the handler.

@@ -3,10 +3,19 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, X, AlertTriangle, ImageIcon, Loader2 } from 'lucide-react'
 import { createIncident } from '../api/incidents'
+import { uploadToCloudinary } from '../utils/uploadToCloudinary'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const CATEGORIES = ['MAINTENANCE', 'SECURITY', 'INFRASTRUCTURE', 'CLEANLINESS', 'EMERGENCY', 'OTHER']
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+const CATEGORY_PRIORITY_MAP = {
+    EMERGENCY: 'CRITICAL',
+    SECURITY: 'HIGH',
+    INFRASTRUCTURE: 'HIGH',
+    MAINTENANCE: 'MEDIUM',
+    CLEANLINESS: 'LOW',
+    OTHER: 'MEDIUM',
+}
 
 const PRIORITY_COLORS = {
     LOW: 'text-green-400',
@@ -52,17 +61,15 @@ export default function CreateIncidentPage() {
         title: '',
         description: '',
         category: 'MAINTENANCE',
-        priority: 'MEDIUM',
         locationBlock: '',
         locationRoom: '',
         departmentId: '',
     })
-    const [photos, setPhotos] = useState([''])   // array of URL strings
     const [errors, setErrors] = useState({})     // field-level errors
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     // ── Derived ────────────────────────────────────────────────────────────────
-    const filledPhotos = photos.filter(u => u.trim() !== '')
+    const filledPhotos = photoUrls.length > 0
     const isCritical = form.priority === 'CRITICAL'
     const showPhotoWarn = isCritical && filledPhotos.length === 0
 
@@ -73,11 +80,10 @@ export default function CreateIncidentPage() {
     }
 
     // ── Photo management ───────────────────────────────────────────────────────
-    const setPhoto = (idx, value) => {
-        setPhotos(prev => prev.map((u, i) => i === idx ? value : u))
-    }
-    const addPhoto = () => setPhotos(prev => [...prev, ''])
-    const removePhoto = (idx) => setPhotos(prev => prev.filter((_, i) => i !== idx))
+    const [photoFiles, setPhotoFiles] = useState([])   // File objects
+    const [photoUrls, setPhotoUrls] = useState([])   // uploaded secure_urls
+    const [uploadProgress, setUploadProgress] = useState({}) // { index: percent }
+    const [uploading, setUploading] = useState(false)
 
     // ── Client-side validation ─────────────────────────────────────────────────
     function validate() {
@@ -109,7 +115,7 @@ export default function CreateIncidentPage() {
                 title: form.title.trim(),
                 description: form.description.trim(),
                 category: form.category,
-                priority: form.priority,
+                priority: CATEGORY_PRIORITY_MAP[form.category],
                 location: {
                     block: form.locationBlock.trim(),
                     room: form.locationRoom.trim() || undefined,
@@ -213,7 +219,7 @@ export default function CreateIncidentPage() {
                                 >
                                     {CATEGORIES.map(c => (
                                         <option key={c} value={c} className="bg-slate-800">
-                                            {c.charAt(0) + c.slice(1).toLowerCase()}
+                                            {c.charAt(0) + c.slice(1).toLowerCase()} — {CATEGORY_PRIORITY_MAP[c]}
                                         </option>
                                     ))}
                                 </select>
@@ -283,44 +289,104 @@ export default function CreateIncidentPage() {
                                 <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
                                     <ImageIcon size={14} className="text-slate-500" />
                                     Evidence Photos
-                                    <span className="text-xs text-slate-600">(optional — Cloudinary URLs)</span>
+                                    {form.category === 'EMERGENCY' && (
+                                        <span className="text-xs text-yellow-400">(required for Emergency)</span>
+                                    )}
                                 </label>
-                                <button
-                                    type="button"
-                                    onClick={addPhoto}
-                                    className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                                >
-                                    <Plus size={13} /> Add URL
-                                </button>
                             </div>
 
-                            <div className="space-y-2">
-                                {photos.map((url, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                        <input
-                                            type="url"
-                                            value={url}
-                                            onChange={(e) => setPhoto(idx, e.target.value)}
-                                            placeholder="https://res.cloudinary.com/..."
-                                            className={inputCls(false)}
-                                        />
-                                        {photos.length > 1 && (
+                            {/* File picker */}
+                            <label className="flex items-center justify-center gap-3 w-full py-8 border-2 border-dashed border-white/15 rounded-xl cursor-pointer hover:border-indigo-500/50 hover:bg-indigo-500/5 transition-all group">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        const files = Array.from(e.target.files)
+                                        if (!files.length) return
+
+                                        setUploading(true)
+                                        setPhotoFiles(prev => [...prev, ...files])
+
+                                        const startIdx = photoUrls.length
+
+                                        try {
+                                            const uploaded = await Promise.all(
+                                                files.map((file, i) =>
+                                                    uploadToCloudinary(file, (pct) => {
+                                                        setUploadProgress(prev => ({
+                                                            ...prev,
+                                                            [startIdx + i]: pct
+                                                        }))
+                                                    })
+                                                )
+                                            )
+                                            setPhotoUrls(prev => [...prev, ...uploaded])
+                                        } catch (err) {
+                                            toast.error('Photo upload failed: ' + err.message)
+                                        } finally {
+                                            setUploading(false)
+                                            setUploadProgress({})
+                                            // Reset file input so same file can be re-selected
+                                            e.target.value = ''
+                                        }
+                                    }}
+                                />
+                                <div className="flex flex-col items-center gap-1 text-center">
+                                    <ImageIcon size={22} className="text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                                    <span className="text-sm text-slate-400 group-hover:text-slate-300 transition-colors">
+                                        {uploading ? 'Uploading…' : 'Click to upload photos'}
+                                    </span>
+                                    <span className="text-xs text-slate-600">PNG, JPG, WEBP up to 10MB each</span>
+                                </div>
+                            </label>
+
+                            {/* Upload progress bars */}
+                            {Object.keys(uploadProgress).length > 0 && (
+                                <div className="space-y-2">
+                                    {Object.entries(uploadProgress).map(([idx, pct]) => (
+                                        <div key={idx} className="flex items-center gap-3">
+                                            <div className="flex-1 bg-white/10 rounded-full h-1.5 overflow-hidden">
+                                                <div
+                                                    className="h-full bg-indigo-500 rounded-full transition-all duration-200"
+                                                    style={{ width: `${pct}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs text-slate-500 w-8 text-right">{pct}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Uploaded photo thumbnails */}
+                            {photoUrls.length > 0 && (
+                                <div className="grid grid-cols-4 gap-2 mt-1">
+                                    {photoUrls.map((url, i) => (
+                                        <div key={i} className="relative group aspect-square">
+                                            <img
+                                                src={url}
+                                                alt={`Photo ${i + 1}`}
+                                                className="w-full h-full object-cover rounded-lg border border-white/10"
+                                            />
                                             <button
                                                 type="button"
-                                                onClick={() => removePhoto(idx)}
-                                                className="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-red-500/15 hover:text-red-400 text-slate-500 flex items-center justify-center transition-colors"
-                                                aria-label="Remove photo"
+                                                onClick={() => {
+                                                    setPhotoUrls(prev => prev.filter((_, idx) => idx !== i))
+                                                    setPhotoFiles(prev => prev.filter((_, idx) => idx !== i))
+                                                }}
+                                                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
                                             >
-                                                <X size={14} />
+                                                <X size={10} className="text-white" />
                                             </button>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
 
-                            {filledPhotos.length > 0 && (
+                            {photoUrls.length > 0 && (
                                 <p className="text-xs text-slate-600">
-                                    {filledPhotos.length} photo{filledPhotos.length > 1 ? 's' : ''} attached
+                                    {photoUrls.length} photo{photoUrls.length > 1 ? 's' : ''} uploaded
                                 </p>
                             )}
                         </div>
@@ -332,14 +398,13 @@ export default function CreateIncidentPage() {
                         <button
                             id="create-incident-submit"
                             type="submit"
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || uploading}
                             className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold transition-all duration-200 flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.99]"
                         >
                             {isSubmitting ? (
-                                <>
-                                    <Loader2 size={17} className="animate-spin" />
-                                    Submitting…
-                                </>
+                                <><Loader2 size={17} className="animate-spin" /> Submitting…</>
+                            ) : uploading ? (
+                                <><Loader2 size={17} className="animate-spin" /> Uploading photos…</>
                             ) : (
                                 'Report Incident'
                             )}

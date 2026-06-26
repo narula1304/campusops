@@ -214,7 +214,7 @@ function buildRecentParams(role, userId) {
 
 // ── Main DashboardPage ────────────────────────────────────────────────────────
 export default function DashboardPage() {
-    const { user, logout } = useAuth()
+    const { user, logout, on } = useAuth()
     const navigate = useNavigate()
 
     const role = user?.role
@@ -227,6 +227,7 @@ export default function DashboardPage() {
     const [statsLoading, setStatsLoading] = useState(true)
     const [recent, setRecent] = useState([])
     const [recentLoading, setRecentLoading] = useState(true)
+    const [refreshKey, setRefreshKey] = useState(0)
 
     // Fetch stat counts
     useEffect(() => {
@@ -250,7 +251,7 @@ export default function DashboardPage() {
                 }
             })()
         return () => { cancelled = true }
-    }, [role, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [role, userId, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch recent incidents
     useEffect(() => {
@@ -267,7 +268,15 @@ export default function DashboardPage() {
                 }
             })()
         return () => { cancelled = true }
-    }, [role, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [role, userId, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Real-time socket subscriptions ────────────────────────────────────────
+    useEffect(() => {
+        const bump = () => setRefreshKey(k => k + 1)
+        const unsub1 = on('incident_created', bump)
+        const unsub2 = on('incident_updated', bump)
+        return () => { unsub1(); unsub2() }
+    }, [on])
 
     const handleLogout = () => {
         logout()
