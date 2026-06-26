@@ -123,6 +123,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     })
 
     const userRoutes = require('./api/routes/userRoutes')
+    const alertRoutes = require('./api/routes/alertRoutes')
     
     // ── Express app ──────────────────────────────────────────────────────────
     const app = express()
@@ -137,6 +138,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
 
     app.use('/api/auth', authRoutes(prismaClient, process.env.JWT_SECRET))
     app.use('/api/users', userRoutes(prismaClient))
+    app.use('/api/alerts', alertRoutes(prismaClient, io))
     app.use('/api/incidents', incidentRoutes(incidentService))
 
     // Must be registered LAST — Express identifies error handlers by arity (4 args)
