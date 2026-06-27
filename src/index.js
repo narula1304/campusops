@@ -45,6 +45,11 @@ const incidentRoutes = require('./api/routes/incidentRoutes')
 const authRoutes = require('./api/routes/authRoutes')
 const errorHandler = require('./api/middleware/errorHandler')
 
+// ── Realtime handlers ────────────────────────────────────────────────────────
+const registerIncidentHandlers = require('./realtime/handlers/incident.handler')
+const registerPanicHandlers    = require('./realtime/handlers/panic.handler')
+const registerChatHandlers     = require('./realtime/handlers/chat.handler')
+
 /**
  * Builds infrastructure clients (Redis, BullMQ Queue, Nodemailer transporter).
  * Does NOT connect yet for clients that connect lazily; ioredis and BullMQ
@@ -204,6 +209,12 @@ function startServer() {
         socket.on('disconnect', () => {
             console.log(`[Socket.IO] ${user.name} disconnected`)
         })
+
+        // Register domain-specific handlers
+        const prismaClient = prisma // Map to prismaClient as requested
+        registerIncidentHandlers(socket, io, prismaClient)
+        registerPanicHandlers(socket, io, prismaClient)
+        registerChatHandlers(socket, io, prismaClient)
     })
 
     const { app, incidentRepo, eventPublisher } = buildApp({ io, redis, slaQueue, mailer })
