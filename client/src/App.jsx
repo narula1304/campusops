@@ -10,6 +10,7 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CreateIncidentPage = lazy(() => import('./pages/CreateIncidentPage'));
 const IncidentDetailPage = lazy(() => import('./pages/IncidentDetailPage'));
+const IncidentListPage = lazy(() => import('./pages/IncidentListPage'));
 
 const PageFallback = () => (
   <div className="flex items-center justify-center min-h-screen bg-slate-900">
@@ -39,6 +40,7 @@ export default function App() {
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/incidents" element={<IncidentListPage />} />
             <Route path="/incidents/:id" element={<IncidentDetailPage />} />
           </Route>
 
