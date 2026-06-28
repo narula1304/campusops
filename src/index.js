@@ -39,6 +39,10 @@ const wireObservers = require('./domain/observers/wireObservers')
 // ── Services ─────────────────────────────────────────────────────────────────
 const IncidentService = require('./services/IncidentService')
 const { createSLAWorker } = require('./jobs/workers/slaWorker')
+const { createEmailWorker } = require('./jobs/workers/email.worker')
+const { createAIWorker } = require('./jobs/workers/ai.worker')
+const { createAnalyticsWorker } = require('./jobs/workers/analytics.worker')
+const scheduleDailySummary = require('./jobs/schedulers/dailySummary.scheduler')
 
 // ── API layer ────────────────────────────────────────────────────────────────
 const incidentRoutes = require('./api/routes/incidentRoutes')
@@ -47,8 +51,8 @@ const errorHandler = require('./api/middleware/errorHandler')
 
 // ── Realtime handlers ────────────────────────────────────────────────────────
 const registerIncidentHandlers = require('./realtime/handlers/incident.handler')
-const registerPanicHandlers    = require('./realtime/handlers/panic.handler')
-const registerChatHandlers     = require('./realtime/handlers/chat.handler')
+const registerPanicHandlers = require('./realtime/handlers/panic.handler')
+const registerChatHandlers = require('./realtime/handlers/chat.handler')
 
 /**
  * Builds infrastructure clients (Redis, BullMQ Queue, Nodemailer transporter).
@@ -132,7 +136,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     const analyticsRoutes = require('./api/routes/analyticsRoutes')
     const panicRoutes = require('./api/routes/panicRoutes')
     const chatRoutes = require('./api/routes/chatRoutes')
-    
+
     // ── Express app ──────────────────────────────────────────────────────────
     const app = express()
 
@@ -222,6 +226,23 @@ function startServer() {
     // ── SLA escalation worker ──────────────────────────────────────────────────
     const slaWorker = createSLAWorker({ incidentRepo, eventPublisher, redis })
 
+    // Create additional queues needed by workers
+    const emailQueue = new Queue('email-delivery', { connection: redis })
+    const aiQueue = new Queue('ai-tasks', { connection: redis })
+    const analyticsQueue = new Queue('analytics', { connection: redis })
+
+    // Create OpenAI client
+    const OpenAI = require('openai')
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_api_key_to_allow_startup' })
+
+    // Start workers
+    const emailWorker = createEmailWorker({ mailer, redis })
+    const aiWorker = createAIWorker({ openai, prisma, redis })
+    const analyticsWorker = createAnalyticsWorker({ prisma, redis })
+
+    // Start daily summary scheduler
+    scheduleDailySummary({ prisma, aiQueue })
+
     // Attach the Express app as the http.Server's request handler.
     // (Socket.IO needs the raw http.Server to set up its own upgrade handling
     // for WebSockets, so we create the server first and hand Express to it,
@@ -239,6 +260,12 @@ function startServer() {
         console.log(`\n${signal} received — shutting down gracefully`)
         httpServer.close(() => console.log('HTTP server closed'))
         await slaWorker.close()
+        await emailWorker.close()
+        await aiWorker.close()
+        await analyticsWorker.close()
+        await emailQueue.close()
+        await aiQueue.close()
+        await analyticsQueue.close()
         await slaQueue.close()
         redis.disconnect()
         await prisma.$disconnect()
