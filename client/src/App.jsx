@@ -14,6 +14,10 @@ const IncidentListPage = lazy(() => import('./pages/IncidentListPage'));
 const StaffDashboardPage = lazy(() => import('./pages/StaffDashboardPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/AdminAnalyticsPage'));
 const BroadcastAlertPage = lazy(() => import('./pages/BroadcastAlertPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const HeatmapPage = lazy(() => import('./pages/HeatmapPage'));
+const UserProfilePage = lazy(() => import('./pages/UserProfilePage'));
+const StaffManagementPage = lazy(() => import('./pages/StaffManagementPage'));
 
 const PageFallback = () => (
   <div className="flex items-center justify-center min-h-screen bg-slate-900">
@@ -45,6 +49,9 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/incidents" element={<IncidentListPage />} />
             <Route path="/incidents/:id" element={<IncidentDetailPage />} />
+            <Route path="/incidents/:id/chat" element={<ChatPage />} />
+            <Route path="/heatmap" element={<HeatmapPage />} />
+            <Route path="/profile" element={<UserProfilePage />} />
           </Route>
 
           <Route element={<ProtectedRoute roles={['STUDENT', 'FACULTY', 'ADMIN']} />}>
@@ -58,6 +65,7 @@ export default function App() {
           <Route element={<ProtectedRoute roles={['ADMIN']} />}>
             <Route path="/analytics" element={<AdminAnalyticsPage />} />
             <Route path="/alerts/new" element={<BroadcastAlertPage />} />
+            <Route path="/staff" element={<StaffManagementPage />} />
           </Route>
 
           {/* Catch-all redirect */}

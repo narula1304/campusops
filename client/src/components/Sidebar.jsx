@@ -11,6 +11,8 @@ import {
     ClipboardList,
     Users,
     AlertTriangle,
+    BarChart3,
+    Map,
 } from 'lucide-react'
 
 // ── Role-specific nav items ───────────────────────────────────────────────────
@@ -18,6 +20,7 @@ export function buildNavItems(role) {
     const base = [
         { label: 'Dashboard', to: '/dashboard', icon: Home },
         { label: 'My Incidents', to: '/incidents', icon: FileText },
+        { label: 'My Profile', to: '/profile', icon: User },
     ]
 
     if (role === 'STUDENT' || role === 'FACULTY') {
@@ -25,13 +28,17 @@ export function buildNavItems(role) {
     }
 
     if (role === 'MAINTENANCE' || role === 'SECURITY') {
-        base.push({ label: 'Assigned to Me', to: '/incidents?assignedToMe=true', icon: ClipboardList })
+        base.push(
+            { label: 'My Queue', to: '/staff-dashboard', icon: ClipboardList },
+        )
     }
 
     if (role === 'ADMIN') {
         base.push(
             { label: 'All Incidents', to: '/incidents', icon: ClipboardList },
-            { label: 'Assign Incidents', to: '/incidents?tab=assign', icon: Users },
+            { label: 'Staff Management', to: '/staff', icon: Users },
+            { label: 'Analytics', to: '/analytics', icon: BarChart3 },
+            { label: 'Heatmap', to: '/heatmap', icon: Map },
             { label: 'Broadcast Alert', to: '/alerts/new', icon: Bell },
         )
     }
