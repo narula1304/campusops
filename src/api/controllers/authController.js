@@ -12,14 +12,14 @@
 //   getMe    — GET  /api/auth/me       (requires authenticate)
 
 const bcrypt = require('bcryptjs')
-const jwt    = require('jsonwebtoken')
+const jwt = require('jsonwebtoken')
 
 // Fields selected for every auth response — never exposes passwordHash
 const PUBLIC_USER_SELECT = {
-    id:           true,
-    name:         true,
-    email:        true,
-    role:         true,
+    id: true,
+    name: true,
+    email: true,
+    role: true,
     departmentId: true,
 }
 
@@ -29,7 +29,7 @@ class AuthController {
      * @param {string} jwtSecret
      */
     constructor(prisma, jwtSecret) {
-        this.prisma    = prisma
+        this.prisma = prisma
         this.jwtSecret = jwtSecret
     }
 
@@ -38,15 +38,15 @@ class AuthController {
     /** Build and sign a JWT for a user payload object */
     #signToken(user) {
         const payload = {
-            id:           user.id,
-            name:         user.name,
-            email:        user.email,
-            role:         user.role,
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
             departmentId: user.departmentId,
         }
         return {
             token: jwt.sign(payload, this.jwtSecret, { expiresIn: '7d' }),
-            user:  payload,
+            user: payload,
         }
     }
 
@@ -79,25 +79,25 @@ class AuthController {
             if (existing) {
                 return res.status(409).json({
                     error: {
-                        code:    'EMAIL_TAKEN',
+                        code: 'EMAIL_TAKEN',
                         message: 'Email already registered',
                     },
                 })
             }
 
             // ── Hash password ─────────────────────────────────────────────────
-            const passwordHash = await bcrypt.hash(password, 10)
+            const passwordHash = await bcrypt.hash(password, 12)
 
             // ── Build role-specific fields ────────────────────────────────────
             const roleFields = {}
             if (role === 'STUDENT') {
                 if (rollNo !== undefined) roleFields.rollNo = rollNo
-                if (year   !== undefined) roleFields.year   = Number(year)
-                if (batch  !== undefined) roleFields.batch  = batch
+                if (year !== undefined) roleFields.year = Number(year)
+                if (batch !== undefined) roleFields.batch = batch
             } else {
                 // FACULTY, MAINTENANCE, SECURITY, ADMIN
-                if (employeeId   !== undefined) roleFields.employeeId   = employeeId
-                if (designation  !== undefined) roleFields.designation  = designation
+                if (employeeId !== undefined) roleFields.employeeId = employeeId
+                if (designation !== undefined) roleFields.designation = designation
             }
 
             // ── Persist ───────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ class AuthController {
                     passwordHash,
                     role,
                     departmentId: departmentId ?? null,
-                    isActive:     true,
+                    isActive: true,
                     ...roleFields,
                 },
                 select: PUBLIC_USER_SELECT,
@@ -141,17 +141,17 @@ class AuthController {
 
             // ── Fetch user (only what we need) ────────────────────────────────
             const user = await this.prisma.user.findUnique({
-                where:  { email },
+                where: { email },
                 select: {
-                    id:               true,
-                    name:             true,
-                    email:            true,
-                    role:             true,
-                    departmentId:     true,
-                    passwordHash:     true,
-                    isActive:         true,
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                    departmentId: true,
+                    passwordHash: true,
+                    isActive: true,
                     failedLoginCount: true,
-                    lockedUntil:      true,
+                    lockedUntil: true,
                 },
             })
 
@@ -167,7 +167,7 @@ class AuthController {
             if (user.lockedUntil && user.lockedUntil > new Date()) {
                 return res.status(423).json({
                     error: {
-                        code:    'ACCOUNT_LOCKED',
+                        code: 'ACCOUNT_LOCKED',
                         message: `Account locked. Try again after ${user.lockedUntil.toISOString()}`,
                         details: { lockedUntil: user.lockedUntil.toISOString() },
                     },
@@ -179,15 +179,15 @@ class AuthController {
 
             if (!passwordMatch) {
                 // Increment failed attempt counter; lock after 5 failures
-                const newCount     = (user.failedLoginCount ?? 0) + 1
-                const shouldLock   = newCount >= 5
-                const lockedUntil  = shouldLock
+                const newCount = (user.failedLoginCount ?? 0) + 1
+                const shouldLock = newCount >= 5
+                const lockedUntil = shouldLock
                     ? new Date(Date.now() + 15 * 60 * 1000)   // 15-minute lockout
                     : null
 
                 await this.prisma.user.update({
                     where: { id: user.id },
-                    data:  {
+                    data: {
                         failedLoginCount: newCount,
                         ...(shouldLock ? { lockedUntil } : {}),
                     },
@@ -201,7 +201,7 @@ class AuthController {
             // ── Success — reset counters, issue token ─────────────────────────
             await this.prisma.user.update({
                 where: { id: user.id },
-                data:  { failedLoginCount: 0, lockedUntil: null },
+                data: { failedLoginCount: 0, lockedUntil: null },
             })
 
             const { token, user: payload } = this.#signToken(user)

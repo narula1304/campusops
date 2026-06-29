@@ -16,6 +16,9 @@
 
 require('dotenv').config()
 
+const validateEnv = require('./config/validateEnv')
+validateEnv()
+
 const express = require('express')
 const http = require('http')
 const cors = require('cors')
@@ -141,7 +144,12 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     const app = express()
 
     app.use(helmet())
-    app.use(cors())
+    app.use(cors({
+        origin: process.env.CORS_ORIGIN
+            ? process.env.CORS_ORIGIN.split(',')
+            : ['http://localhost:5173', 'http://localhost:3000'],
+        credentials: true,
+    }))
     app.use(express.json())
 
     app.get('/health', (req, res) => {
@@ -159,16 +167,16 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     // 10 incident creations per minute per authenticated user
     const incidentCreateLimiter = createRateLimiter({
         redis,
-        windowMs:  60 * 1000,
-        max:       10,
+        windowMs: 60 * 1000,
+        max: 10,
         keyPrefix: 'rl:incident:create',
     })
 
     // 3 panic triggers per 5 minutes per user
     const panicLimiter = createRateLimiter({
         redis,
-        windowMs:  5 * 60 * 1000,
-        max:       3,
+        windowMs: 5 * 60 * 1000,
+        max: 3,
         keyPrefix: 'rl:panic',
     })
 
