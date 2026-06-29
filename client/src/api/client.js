@@ -16,15 +16,30 @@ client.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle 401 by redirecting to login
+// Response interceptor — handle 401 with retry guard
 client.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.clear();
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      // TODO: When refresh token rotation is implemented:
+      // 1. const refreshToken = localStorage.getItem('campusops_refresh_token')
+      // 2. if (refreshToken) {
+      //      const res = await axios.post('/api/auth/refresh', { refreshToken })
+      //      localStorage.setItem('campusops_token', res.data.token)
+      //      originalRequest.headers.Authorization = `Bearer ${res.data.token}`
+      //      return client(originalRequest)
+      //    }
+
+      localStorage.removeItem('campusops_token')
+      localStorage.removeItem('campusops_user')
+      window.location.href = '/login'
     }
-    return Promise.reject(error);
+
+    return Promise.reject(error)
   }
 );
 

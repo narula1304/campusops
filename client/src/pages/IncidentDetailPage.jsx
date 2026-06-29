@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
     ArrowLeft, MapPin, User, Calendar, Clock, Tag, Building2,
     Image, CheckCircle2, Star, X, Loader2, AlertTriangle,
-    ShieldCheck, ClipboardList, ChevronRight,
+    ShieldCheck, ClipboardList, ChevronRight, MessageSquare,
 } from 'lucide-react'
 import { getIncident, assignIncident, resolveIncident, submitFeedback } from '../api/incidents'
 import { useAuth } from '../context/AuthContext'
+import SLACountdown from '../components/SLACountdown'
 
 // ── Shared badge components ────────────────────────────────────────────────────
 const PRIORITY_STYLES = {
@@ -400,10 +401,15 @@ export default function IncidentDetailPage() {
                             </DetailCell>
 
                             <DetailCell icon={Clock} label="SLA Deadline">
-                                <span className={isSLABreached ? 'text-red-400 font-semibold' : ''}>
-                                    {incident.sla?.deadlineAt ? formatDateTime(incident.sla.deadlineAt) : '—'}
-                                    {isSLABreached && ' ⚠ Breached'}
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                    <span className={isSLABreached ? 'text-red-400 text-xs' : 'text-slate-300 text-xs'}>
+                                        {incident.sla?.deadlineAt
+                                            ? formatDateTime(incident.sla.deadlineAt)
+                                            : '—'}
+                                        {isSLABreached && ' ⚠ Breached'}
+                                    </span>
+                                    <SLACountdown deadline={incident.sla?.deadlineAt ?? incident.slaDeadlineAt ?? null} />
+                                </div>
                             </DetailCell>
 
                             <DetailCell icon={Calendar} label="Created At">
@@ -494,70 +500,77 @@ export default function IncidentDetailPage() {
                     )}
 
                     {/* ── Action buttons ───────────────────────────────────────── */}
-                    {(canAssign || canResolve || canFeedback) && (
-                        <div className="bg-white/4 border border-white/10 rounded-2xl px-7 py-6 space-y-5">
-                            <h2 className="text-sm font-semibold text-white">Actions</h2>
+                    <div className="bg-white/4 border border-white/10 rounded-2xl px-7 py-6 space-y-5">
+                        <h2 className="text-sm font-semibold text-white">Actions</h2>
 
-                            {/* ADMIN: Assign */}
-                            {canAssign && (
+                        {/* ADMIN: Assign */}
+                        {canAssign && (
+                            <button
+                                onClick={handleAssign}
+                                disabled={actionLoading}
+                                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.99]"
+                            >
+                                {actionLoading
+                                    ? <><Loader2 size={16} className="animate-spin" /> Assigning…</>
+                                    : <><ShieldCheck size={16} /> Assign Staff</>
+                                }
+                            </button>
+                        )}
+
+                        {/* MAINTENANCE/SECURITY: Resolve */}
+                        {canResolve && (
+                            <button
+                                onClick={() => setShowResolveModal(true)}
+                                className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-green-500/20 active:scale-[0.99]"
+                            >
+                                <CheckCircle2 size={16} /> Resolve Incident
+                            </button>
+                        )}
+
+                        {/* STUDENT/FACULTY: Feedback */}
+                        {canFeedback && (
+                            <div className="space-y-4">
+                                <p className="text-sm text-slate-300">
+                                    How satisfied are you with the resolution?
+                                </p>
+                                <StarRating value={starScore} onChange={setStarScore} />
+                                <textarea
+                                    rows={3}
+                                    value={comment}
+                                    onChange={e => setComment(e.target.value)}
+                                    placeholder="Optional comment…"
+                                    className="w-full px-4 py-2.5 rounded-lg bg-white/8 border border-white/12 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
+                                />
                                 <button
-                                    onClick={handleAssign}
-                                    disabled={actionLoading}
-                                    className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.99]"
+                                    onClick={handleFeedback}
+                                    disabled={actionLoading || starScore === 0}
+                                    className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
                                 >
                                     {actionLoading
-                                        ? <><Loader2 size={16} className="animate-spin" /> Assigning…</>
-                                        : <><ShieldCheck size={16} /> Assign Staff</>
+                                        ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
+                                        : <><Star size={15} className="fill-slate-900" /> Submit Feedback</>
                                     }
                                 </button>
-                            )}
+                            </div>
+                        )}
 
-                            {/* MAINTENANCE/SECURITY: Resolve */}
-                            {canResolve && (
-                                <button
-                                    onClick={() => setShowResolveModal(true)}
-                                    className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-green-500/20 active:scale-[0.99]"
-                                >
-                                    <CheckCircle2 size={16} /> Resolve Incident
-                                </button>
-                            )}
+                        {/* Feedback already submitted */}
+                        {feedbackSubmitted && (
+                            <div className="flex items-center gap-2 text-green-400 text-sm">
+                                <CheckCircle2 size={16} />
+                                Feedback submitted — thank you!
+                            </div>
+                        )}
 
-                            {/* STUDENT/FACULTY: Feedback */}
-                            {canFeedback && (
-                                <div className="space-y-4">
-                                    <p className="text-sm text-slate-300">
-                                        How satisfied are you with the resolution?
-                                    </p>
-                                    <StarRating value={starScore} onChange={setStarScore} />
-                                    <textarea
-                                        rows={3}
-                                        value={comment}
-                                        onChange={e => setComment(e.target.value)}
-                                        placeholder="Optional comment…"
-                                        className="w-full px-4 py-2.5 rounded-lg bg-white/8 border border-white/12 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
-                                    />
-                                    <button
-                                        onClick={handleFeedback}
-                                        disabled={actionLoading || starScore === 0}
-                                        className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
-                                    >
-                                        {actionLoading
-                                            ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                                            : <><Star size={15} className="fill-slate-900" /> Submit Feedback</>
-                                        }
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Feedback already submitted */}
-                            {feedbackSubmitted && (
-                                <div className="flex items-center gap-2 text-green-400 text-sm">
-                                    <CheckCircle2 size={16} />
-                                    Feedback submitted — thank you!
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        {/* Chat — always visible for all roles */}
+                        <Link
+                            id="open-incident-chat-btn"
+                            to={`/incidents/${id}/chat`}
+                            className="w-full py-3 rounded-xl border border-indigo-500/30 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                        >
+                            <MessageSquare size={16} /> Open Incident Chat
+                        </Link>
+                    </div>
                 </div>
             </div>
 

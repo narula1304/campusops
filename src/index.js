@@ -152,6 +152,37 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     app.use('/api/users', userRoutes(prismaClient))
     app.use('/api/alerts', alertRoutes(prismaClient, io))
     app.use('/api/analytics', analyticsRoutes(prismaClient, redis))
+
+    // ── Rate limiters ─────────────────────────────────────────────────────────
+    const createRateLimiter = require('./api/middleware/rateLimiter')
+
+    // 10 incident creations per minute per authenticated user
+    const incidentCreateLimiter = createRateLimiter({
+        redis,
+        windowMs:  60 * 1000,
+        max:       10,
+        keyPrefix: 'rl:incident:create',
+    })
+
+    // 3 panic triggers per 5 minutes per user
+    const panicLimiter = createRateLimiter({
+        redis,
+        windowMs:  5 * 60 * 1000,
+        max:       3,
+        keyPrefix: 'rl:panic',
+    })
+
+    // Apply limiters BEFORE the route handlers — inline guard ensures only the
+    // targeted method+path is rate-limited; other verbs pass straight through.
+    app.use('/api/incidents', (req, res, next) => {
+        if (req.method === 'POST' && req.path === '/') return incidentCreateLimiter(req, res, next)
+        next()
+    })
+    app.use('/api/panic', (req, res, next) => {
+        if (req.method === 'POST' && req.path === '/') return panicLimiter(req, res, next)
+        next()
+    })
+
     app.use('/api/panic', panicRoutes(prismaClient, io))
     app.use('/api/incidents', incidentRoutes(incidentService))
     app.use('/api/incidents', chatRoutes(prismaClient, io))
