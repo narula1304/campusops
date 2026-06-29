@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import PanicButton from './PanicButton'
 import {
     Home,
     FileText,
@@ -65,7 +66,8 @@ export default function Sidebar({ user, onLogout }) {
     const navigate = useNavigate()
 
     return (
-        <aside className="fixed top-0 left-0 h-screen w-64 bg-slate-900 border-r border-white/8 flex flex-col z-40">
+        <>
+            <aside className="fixed top-0 left-0 h-screen w-64 bg-slate-900 border-r border-white/8 flex flex-col z-40">
             {/* Logo */}
             <div className="px-6 py-5 border-b border-white/8">
                 <div className="flex items-center gap-3">
@@ -110,6 +112,8 @@ export default function Sidebar({ user, onLogout }) {
                     <span className="text-sm font-medium">Sign out</span>
                 </button>
             </div>
-        </aside>
+            </aside>
+            <PanicButton role={user?.role} />
+        </>
     )
 }
