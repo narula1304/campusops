@@ -11,6 +11,9 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CreateIncidentPage = lazy(() => import('./pages/CreateIncidentPage'));
 const IncidentDetailPage = lazy(() => import('./pages/IncidentDetailPage'));
 const IncidentListPage = lazy(() => import('./pages/IncidentListPage'));
+const StaffDashboardPage = lazy(() => import('./pages/StaffDashboardPage'));
+const AdminAnalyticsPage = lazy(() => import('./pages/AdminAnalyticsPage'));
+const BroadcastAlertPage = lazy(() => import('./pages/BroadcastAlertPage'));
 
 const PageFallback = () => (
   <div className="flex items-center justify-center min-h-screen bg-slate-900">
@@ -46,6 +49,15 @@ export default function App() {
 
           <Route element={<ProtectedRoute roles={['STUDENT', 'FACULTY', 'ADMIN']} />}>
             <Route path="/incidents/new" element={<CreateIncidentPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute roles={['MAINTENANCE', 'SECURITY']} />}>
+            <Route path="/staff-dashboard" element={<StaffDashboardPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute roles={['ADMIN']} />}>
+            <Route path="/analytics" element={<AdminAnalyticsPage />} />
+            <Route path="/alerts/new" element={<BroadcastAlertPage />} />
           </Route>
 
           {/* Catch-all redirect */}
