@@ -41,6 +41,15 @@ module.exports = function incidentRoutes(incidentService) {
         authorize('STUDENT', 'FACULTY', 'ADMIN'),
         controller.createIncident
     )
+    // ── AI Classify ────────────────────────────────────────────────────────────
+    // IMPORTANT: must be BEFORE /:id routes to avoid "ai-classify" being
+    // treated as an :id parameter value
+    router.post(
+        '/ai-classify',
+        authenticate,
+        authorize('STUDENT', 'FACULTY', 'ADMIN'),
+        controller.aiClassify
+    )
     // ── Assign incident ────────────────────────────────────────────────────────
     // Only Admins can trigger auto-assignment.
     // NOTE: the /:id/assign route must be defined BEFORE /:id to prevent

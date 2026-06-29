@@ -25,6 +25,56 @@ class IncidentController {
     constructor(incidentService) {
         this.incidentService = incidentService
     }
+    // ── POST /api/incidents/ai-classify ─────────────────────────────────────────
+    aiClassify = async (req, res, next) => {
+        try {
+            const { title, description } = req.body
+            if (!title && !description) {
+                return res.status(422).json({
+                    error: { code: 'VALIDATION_ERROR', message: 'title or description required' }
+                })
+            }
+
+            // Call OpenAI directly (synchronous, not queued — user is waiting for this)
+            const OpenAI = require('openai')
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+            const completion = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [{
+                    role: 'system',
+                    content: `You classify campus incidents. Given a title and/or description,
+        return ONLY a JSON object with these exact keys:
+        {
+          "category": one of MAINTENANCE/SECURITY/INFRASTRUCTURE/CLEANLINESS/EMERGENCY/OTHER,
+          "confidence": number between 0 and 1,
+          "reasoning": one sentence explaining the classification
+        }
+        No other text. No markdown.`
+                }, {
+                    role: 'user',
+                    content: `Title: ${title || 'N/A'}\nDescription: ${description || 'N/A'}`
+                }],
+                max_tokens: 150,
+                temperature: 0.2,
+            })
+
+            const raw = completion.choices[0].message.content.trim()
+            const result = JSON.parse(raw)
+
+            return res.status(200).json({ data: result })
+        } catch (err) {
+            // If OpenAI fails, return a graceful degradation response
+            // rather than a 500 — the user can still submit manually
+            if (err?.status === 401 || err?.code === 'invalid_api_key') {
+                return res.status(200).json({
+                    data: { category: null, confidence: 0, reasoning: 'AI classification unavailable' }
+                })
+            }
+            next(err)
+        }
+    }
+
     // ── POST /api/incidents ────────────────────────────────────────────────────
     /**
      * Flow 1 — Report a new incident.

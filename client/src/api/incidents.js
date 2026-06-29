@@ -1,5 +1,10 @@
 import client from './client';
 
+export async function aiClassifyIncident(title, description) {
+  const response = await client.post('/incidents/ai-classify', { title, description });
+  return response.data.data;
+}
+
 export async function createIncident(data) {
   const response = await client.post('/incidents', data);
   return response.data.data;

@@ -1,13 +1,12 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, X, AlertTriangle, ImageIcon, Loader2 } from 'lucide-react'
-import { createIncident } from '../api/incidents'
+import { ArrowLeft, Plus, X, AlertTriangle, ImageIcon, Loader2, Sparkles } from 'lucide-react'
+import { createIncident, aiClassifyIncident } from '../api/incidents'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const CATEGORIES = ['MAINTENANCE', 'SECURITY', 'INFRASTRUCTURE', 'CLEANLINESS', 'EMERGENCY', 'OTHER']
-const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 const CATEGORY_PRIORITY_MAP = {
     EMERGENCY: 'CRITICAL',
     SECURITY: 'HIGH',
@@ -15,13 +14,6 @@ const CATEGORY_PRIORITY_MAP = {
     MAINTENANCE: 'MEDIUM',
     CLEANLINESS: 'LOW',
     OTHER: 'MEDIUM',
-}
-
-const PRIORITY_COLORS = {
-    LOW: 'text-green-400',
-    MEDIUM: 'text-yellow-400',
-    HIGH: 'text-orange-400',
-    CRITICAL: 'text-red-400',
 }
 
 // ── Reusable field wrapper ─────────────────────────────────────────────────────
@@ -68,10 +60,40 @@ export default function CreateIncidentPage() {
     const [errors, setErrors] = useState({})     // field-level errors
     const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // ── AI Suggestion ──────────────────────────────────────────────────────────
+    const [aiSuggestion, setAiSuggestion] = useState(null)
+    const [aiLoading, setAiLoading] = useState(false)
+    const aiDebounceRef = useRef(null)
+
+    useEffect(() => {
+        clearTimeout(aiDebounceRef.current)
+        const text = `${form.title} ${form.description}`.trim()
+        if (text.length < 20) {
+            setAiSuggestion(null)
+            return
+        }
+        aiDebounceRef.current = setTimeout(async () => {
+            setAiLoading(true)
+            try {
+                const result = await aiClassifyIncident(form.title, form.description)
+                if (result?.category && result.confidence > 0.5) {
+                    setAiSuggestion(result)
+                } else {
+                    setAiSuggestion(null)
+                }
+            } catch {
+                setAiSuggestion(null)
+            } finally {
+                setAiLoading(false)
+            }
+        }, 800)
+        return () => clearTimeout(aiDebounceRef.current)
+    }, [form.title, form.description])
+
     // ── Derived ────────────────────────────────────────────────────────────────
     const filledPhotos = photoUrls.length > 0
-    const isCritical = form.priority === 'CRITICAL'
-    const showPhotoWarn = isCritical && filledPhotos.length === 0
+    const isCritical = CATEGORY_PRIORITY_MAP[form.category] === 'CRITICAL'
+    const showPhotoWarn = isCritical && !filledPhotos
 
     // ── Field change ───────────────────────────────────────────────────────────
     const set = (field) => (e) => {
@@ -197,7 +219,16 @@ export default function CreateIncidentPage() {
                         </Field>
 
                         {/* Description */}
-                        <Field label="Description" required error={errors.description}>
+                        <Field
+                            label={
+                                <>
+                                    Description
+                                    {aiLoading && <Loader2 size={12} className="inline ml-2 animate-spin text-indigo-400" />}
+                                </>
+                            }
+                            required
+                            error={errors.description}
+                        >
                             <textarea
                                 id="incident-description"
                                 rows={4}
@@ -208,38 +239,45 @@ export default function CreateIncidentPage() {
                             />
                         </Field>
 
-                        {/* Category + Priority */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <Field label="Category" required>
-                                <select
-                                    id="incident-category"
-                                    value={form.category}
-                                    onChange={set('category')}
-                                    className={inputCls(false) + ' cursor-pointer'}
-                                >
-                                    {CATEGORIES.map(c => (
-                                        <option key={c} value={c} className="bg-slate-800">
-                                            {c.charAt(0) + c.slice(1).toLowerCase()} — {CATEGORY_PRIORITY_MAP[c]}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
+                        {/* AI Suggestion Banner */}
+                        {aiSuggestion && (
+                            <div className="flex items-center gap-3 bg-indigo-600/10 border border-indigo-500/30 rounded-xl px-4 py-3">
+                                <Sparkles size={16} className="text-indigo-400 shrink-0" />
+                                <div className="flex-1">
+                                    <p className="text-sm text-indigo-300 font-medium">
+                                        AI suggests: <strong>{aiSuggestion.category}</strong>
+                                        <span className="text-xs text-indigo-400 ml-2">
+                                            ({Math.round(aiSuggestion.confidence * 100)}% confident)
+                                        </span>
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{aiSuggestion.reasoning}</p>
+                                </div>
+                                <button type="button" onClick={() => { setForm(p => ({ ...p, category: aiSuggestion.category })); setAiSuggestion(null) }}
+                                    className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors">
+                                    Apply
+                                </button>
+                                <button type="button" onClick={() => setAiSuggestion(null)}
+                                    className="text-slate-500 hover:text-slate-300 transition-colors">
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        )}
 
-                            <Field label="Priority" required>
-                                <select
-                                    id="incident-priority"
-                                    value={form.priority}
-                                    onChange={set('priority')}
-                                    className={`${inputCls(false)} cursor-pointer ${PRIORITY_COLORS[form.priority]}`}
-                                >
-                                    {PRIORITIES.map(p => (
-                                        <option key={p} value={p} className="bg-slate-800 text-white">
-                                            {p.charAt(0) + p.slice(1).toLowerCase()}
-                                        </option>
-                                    ))}
-                                </select>
-                            </Field>
-                        </div>
+                        {/* Category */}
+                        <Field label="Category" required>
+                            <select
+                                id="incident-category"
+                                value={form.category}
+                                onChange={set('category')}
+                                className={inputCls(false) + ' cursor-pointer'}
+                            >
+                                {CATEGORIES.map(c => (
+                                    <option key={c} value={c} className="bg-slate-800">
+                                        {c.charAt(0) + c.slice(1).toLowerCase()} — {CATEGORY_PRIORITY_MAP[c]}
+                                    </option>
+                                ))}
+                            </select>
+                        </Field>
 
                         {/* Location — two-column */}
                         <div>

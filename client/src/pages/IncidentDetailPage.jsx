@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
     ArrowLeft, MapPin, User, Calendar, Clock, Tag, Building2,
     Image, CheckCircle2, Star, X, Loader2, AlertTriangle,
     ShieldCheck, ClipboardList, ChevronRight, MessageSquare,
+    ChevronsLeftRight,
 } from 'lucide-react'
 import { getIncident, assignIncident, resolveIncident, submitFeedback } from '../api/incidents'
 import { useAuth } from '../context/AuthContext'
@@ -212,6 +213,67 @@ function Section({ title, icon: Icon, children }) {
                 <h2 className="text-sm font-semibold text-white">{title}</h2>
             </div>
             <div className="px-6 py-5">{children}</div>
+        </div>
+    )
+}
+
+// ── BeforeAfterSlider ────────────────────────────────────────────────────────
+function BeforeAfterSlider({ beforeUrl, afterUrl }) {
+    const [sliderPos, setSliderPos] = useState(50) // percentage 0-100
+    const containerRef = useRef(null)
+    const isDragging = useRef(false)
+
+    const handleMove = (clientX) => {
+        if (!containerRef.current) return
+        const rect = containerRef.current.getBoundingClientRect()
+        const pos = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100))
+        setSliderPos(pos)
+    }
+
+    // Mouse events
+    const onMouseDown = () => { isDragging.current = true }
+    const onMouseMove = (e) => { if (isDragging.current) handleMove(e.clientX) }
+    const onMouseUp = () => { isDragging.current = false }
+
+    // Touch events
+    const onTouchMove = (e) => { handleMove(e.touches[0].clientX) }
+
+    return (
+        <div
+            ref={containerRef}
+            className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/10 cursor-col-resize select-none"
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onTouchMove={onTouchMove}
+        >
+            {/* AFTER image (full width, behind) */}
+            <img src={afterUrl} alt="After" className="absolute inset-0 w-full h-full object-cover" />
+
+            {/* BEFORE image (clipped to left of slider) */}
+            <div
+                className="absolute inset-0 overflow-hidden"
+                style={{ width: `${sliderPos}%` }}
+            >
+                <img src={beforeUrl} alt="Before" className="absolute inset-0 w-full h-full object-cover"
+                    style={{ width: containerRef.current?.offsetWidth + 'px' }} />
+            </div>
+
+            {/* Divider line + handle */}
+            <div
+                className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg cursor-col-resize"
+                style={{ left: `${sliderPos}%` }}
+                onMouseDown={onMouseDown}
+                onTouchStart={onMouseDown}
+            >
+                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
+                    <ChevronsLeftRight size={16} className="text-slate-800" />
+                </div>
+            </div>
+
+            {/* Labels */}
+            <span className="absolute top-2 left-2 text-xs font-bold text-white bg-black/50 px-2 py-0.5 rounded">BEFORE</span>
+            <span className="absolute top-2 right-2 text-xs font-bold text-white bg-black/50 px-2 py-0.5 rounded">AFTER</span>
         </div>
     )
 }
@@ -460,7 +522,17 @@ export default function IncidentDetailPage() {
                             <p className="text-sm text-slate-300 leading-relaxed">
                                 {incident.resolutionNote}
                             </p>
-                            {incident.resolutionPhoto && (
+                            {photos.length > 0 && incident.resolutionPhoto ? (
+                                <div className="mt-4">
+                                    <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">
+                                        Before / After Comparison
+                                    </p>
+                                    <BeforeAfterSlider
+                                        beforeUrl={photos[0]}
+                                        afterUrl={incident.resolutionPhoto}
+                                    />
+                                </div>
+                            ) : incident.resolutionPhoto ? (
                                 <a
                                     href={incident.resolutionPhoto}
                                     target="_blank"
@@ -473,7 +545,7 @@ export default function IncidentDetailPage() {
                                         className="w-full h-full object-cover"
                                     />
                                 </a>
-                            )}
+                            ) : null}
                         </Section>
                     )}
 
