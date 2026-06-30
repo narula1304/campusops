@@ -17,8 +17,9 @@ const useSocket = ({ token, isAuthenticated }) => {
         if (!isAuthenticated || !token) return
 
         // Connect to the backend Socket.IO server.
-        // In dev, Vite proxies /api but Socket.IO needs the direct URL.
-        const socket = io('http://localhost:5000', {
+        // Use environment variable if provided, fallback to localhost in dev, or current origin in production
+        const BACKEND_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')
+        const socket = io(BACKEND_URL, {
             auth: { token },
             transports: ['websocket', 'polling'],
         })

@@ -194,24 +194,7 @@ The server follows a **clean layered architecture** with strict dependency injec
 
 > Every dependency is injected via constructor — no file imports infrastructure directly. The entry point (`src/index.js`) is the sole composition root.
 
----
 
-## 🎨 Design Patterns
-
-CampusOps implements **8 GoF design patterns** in production:
-
-| Pattern | Implementation | Purpose |
-|---|---|---|
-| **State** | `domain/states/` — `OpenState`, `InProgressState`, `ResolvedState`, `EscalatedState`, `ReopenedState` | Enforces valid incident lifecycle transitions |
-| **Strategy** | `domain/strategies/AssignmentStrategy.js` — `LeastLoaded`, `RoundRobin`, `ShiftAware`, `Manual` | Configurable auto-assignment per department |
-| **Observer** | `domain/observers/` — `IncidentEventPublisher` + observer chain | Decoupled fan-out: SLA timers, notifications, cache invalidation |
-| **Command** | `domain/commands/` — `AssignIncidentCommand`, `BroadcastAlertCommand` | Encapsulates operations with audit logging |
-| **Factory** | `domain/factories/IncidentFactory.js` | Standardized incident creation with SLA policy |
-| **Decorator** | `domain/decorators/` — `BaseNotification → EmailDecorator → RealTimeDecorator → SMSDecorator` | Composable multi-channel notification delivery |
-| **Chain of Responsibility** | `domain/validators/ValidationChain.js` | Sequential input validation pipeline |
-| **Proxy** | `infrastructure/repositories/CachingIncidentProxy.js` | Redis cache-aside with transparent TTL |
-
----
 
 ## 📁 Project Structure
 
