@@ -124,6 +124,11 @@ class PanicController {
                     officerName: req.user.name,
                     acknowledgedAt: ack.acknowledgedAt
                 })
+
+                // Inform all security and admin that it was acknowledged, so they can dismiss their alert
+                const globalAckPayload = { incidentId, officerName: req.user.name, acknowledgedAt: ack.acknowledgedAt }
+                this.io.to('role:SECURITY').emit('panic_acknowledged_global', globalAckPayload)
+                this.io.to('role:ADMIN').emit('panic_acknowledged_global', globalAckPayload)
             }
 
             // 4. Response

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
 import {
     BarChart3,
     Users,
@@ -10,57 +9,129 @@ import {
     CheckCircle2,
     Activity,
     X,
-    Loader2,
     ChevronRight,
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import { useAuth } from '../context/AuthContext'
 import { getDashboard, getStaffPerformance } from '../api/analytics'
 import { listUsers } from '../api/users'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 function Skeleton({ className = '' }) {
-    return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />
+    return <div className={`animate-pulse rounded-lg ${className}`} style={{ background: 'rgba(255,255,255,0.04)' }} />
 }
 
-// ── Stat card ──────────────────────────────────────────────────────────────────
-function StatCard({ label, value, icon: Icon, color, suffix = '' }) {
-    return (
-        <div className="flex-1 min-w-[160px] bg-white/5 border border-white/10 rounded-2xl p-5 flex flex-col gap-3 backdrop-blur-sm">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${color}`}>
-                <Icon size={18} className="text-white" />
+// ── Stat card with glow hover ──────────────────────────────────────────────────
+const STAT_STYLES = {
+    'bg-blue-600':   { accent: '#38bdf8', glow: 'rgba(14,165,233,0.3)',  ring: 'rgba(14,165,233,0.25)' },
+    'bg-indigo-600': { accent: '#818cf8', glow: 'rgba(99,102,241,0.3)',  ring: 'rgba(99,102,241,0.25)' },
+    'bg-green-600':  { accent: '#34d399', glow: 'rgba(16,185,129,0.3)',  ring: 'rgba(16,185,129,0.25)' },
+    'bg-red-600':    { accent: '#f87171', glow: 'rgba(239,68,68,0.3)',   ring: 'rgba(239,68,68,0.25)' },
+    'bg-orange-600': { accent: '#fbbf24', glow: 'rgba(245,158,11,0.3)',  ring: 'rgba(245,158,11,0.25)' },
+    'bg-purple-600': { accent: '#a78bfa', glow: 'rgba(167,139,250,0.3)', ring: 'rgba(167,139,250,0.25)' },
+}
+
+function StatCard({ label, value, icon: Icon, color, suffix = '', loading }) {
+    const s = STAT_STYLES[color] ?? STAT_STYLES['bg-blue-600']
+
+    if (loading) {
+        return (
+            <div
+                className="flex-1 min-w-[160px] rounded-2xl p-5 space-y-3"
+                style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                }}
+            >
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <Skeleton className="h-8 w-16 rounded-lg" />
+                <Skeleton className="h-4 w-28 rounded" />
             </div>
-            <p className="text-3xl font-bold text-white">
-                {value ?? '—'}
-                {suffix && <span className="text-lg font-medium text-slate-400 ml-1">{suffix}</span>}
-            </p>
-            <p className="text-sm text-slate-400">{label}</p>
+        )
+    }
+
+    return (
+        <div
+            className="flex-1 min-w-[160px] rounded-2xl relative overflow-hidden group cursor-default"
+            style={{
+                background: 'var(--surface-2)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                transition: 'transform 400ms cubic-bezier(.16,1,.3,1), box-shadow 400ms, border-color 250ms',
+            }}
+            onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-4px)'
+                e.currentTarget.style.boxShadow = `0 20px 60px rgba(0,0,0,0.4), 0 8px 24px ${s.glow}, inset 0 1px 0 rgba(255,255,255,0.06)`
+                e.currentTarget.style.borderColor = s.ring
+            }}
+            onMouseLeave={e => {
+                e.currentTarget.style.transform = ''
+                e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)'
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'
+            }}
+        >
+            {/* Top highlight */}
+            <div className="absolute inset-x-0 top-0 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent)' }} />
+            {/* Bottom accent */}
+            <div className="absolute bottom-0 left-0 right-0 h-[2px]"
+                style={{ background: `linear-gradient(90deg, ${s.accent}60, transparent)` }} />
+            {/* Ambient glow */}
+            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full blur-3xl opacity-15 group-hover:opacity-25 transition-opacity duration-500"
+                style={{ background: s.accent }} />
+
+            <div className="relative z-10 p-5">
+                <div className="flex items-start justify-between mb-4">
+                    <div
+                        className="h-10 w-10 rounded-xl flex items-center justify-center"
+                        style={{
+                            background: `${s.accent}15`,
+                            border: `1px solid ${s.ring}`,
+                            boxShadow: `0 4px 16px -4px ${s.glow}`,
+                        }}
+                    >
+                        <Icon size={20} style={{ color: s.accent }} />
+                    </div>
+                </div>
+                <p className="text-3xl font-bold text-white tracking-tight tabular-nums">
+                    {value ?? '—'}
+                    {suffix && <span className="text-lg font-medium ml-1" style={{ color: 'var(--color-text-muted)' }}>{suffix}</span>}
+                </p>
+                <p className="text-xs font-medium mt-1.5" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+            </div>
         </div>
     )
 }
 
-// ── Horizontal CSS bar chart ───────────────────────────────────────────────────
-const BAR_COLORS = {
-    // Categories
-    MAINTENANCE: 'bg-blue-500',
-    SECURITY: 'bg-red-500',
-    INFRASTRUCTURE: 'bg-purple-500',
-    CLEANLINESS: 'bg-green-500',
-    EMERGENCY: 'bg-orange-500',
-    OTHER: 'bg-slate-500',
-    // Priorities
-    CRITICAL: 'bg-red-500',
-    HIGH: 'bg-orange-500',
-    MEDIUM: 'bg-yellow-500',
-    LOW: 'bg-emerald-500',
+// ── Horizontal bar chart with gradient fills ───────────────────────────────────
+const BAR_GRADIENTS = {
+    MAINTENANCE:    { from: '#38bdf8', to: '#0ea5e9' },
+    SECURITY:       { from: '#f87171', to: '#ef4444' },
+    INFRASTRUCTURE: { from: '#818cf8', to: '#6366f1' },
+    CLEANLINESS:    { from: '#34d399', to: '#10b981' },
+    EMERGENCY:      { from: '#fbbf24', to: '#f59e0b' },
+    OTHER:          { from: '#94a3b8', to: '#64748b' },
+    CRITICAL:       { from: '#f87171', to: '#dc2626' },
+    HIGH:           { from: '#fbbf24', to: '#f59e0b' },
+    MEDIUM:         { from: '#38bdf8', to: '#0284c7' },
+    LOW:            { from: '#34d399', to: '#059669' },
 }
 
 function BarChart({ data, title }) {
     if (!data || Object.keys(data).length === 0) {
         return (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-                <h3 className="text-sm font-semibold text-white mb-4">{title}</h3>
-                <p className="text-slate-500 text-sm">No data available.</p>
+            <div
+                className="rounded-2xl p-6"
+                style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                }}
+            >
+                <h3 className="text-sm font-bold text-white mb-4">{title}</h3>
+                <p className="text-sm" style={{ color: 'var(--color-text-muted)' }}>No data available.</p>
             </div>
         )
     }
@@ -69,23 +140,41 @@ function BarChart({ data, title }) {
     const maxVal = Math.max(...entries.map(([, v]) => v), 1)
 
     return (
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <h3 className="text-sm font-semibold text-white mb-5">{title}</h3>
-            <div className="space-y-3">
-                {entries.map(([key, val]) => (
-                    <div key={key} className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400 w-28 shrink-0 truncate capitalize">
-                            {key.replace('_', ' ')}
-                        </span>
-                        <div className="flex-1 bg-white/5 rounded-full h-2 overflow-hidden">
+        <div
+            className="rounded-2xl p-6"
+            style={{
+                background: 'var(--surface-2)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+            }}
+        >
+            <h3 className="text-sm font-bold text-white mb-6">{title}</h3>
+            <div className="space-y-4">
+                {entries.map(([key, val]) => {
+                    const grad = BAR_GRADIENTS[key] ?? { from: '#818cf8', to: '#6366f1' }
+                    const pct = Math.round((val / maxVal) * 100)
+                    return (
+                        <div key={key} className="flex items-center gap-4">
+                            <span className="text-xs font-medium w-28 shrink-0 truncate capitalize" style={{ color: 'var(--color-text-secondary)' }}>
+                                {key.replace('_', ' ')}
+                            </span>
                             <div
-                                className={`h-full rounded-full transition-all duration-700 ${BAR_COLORS[key] ?? 'bg-indigo-500'}`}
-                                style={{ width: `${Math.round((val / maxVal) * 100)}%` }}
-                            />
+                                className="flex-1 rounded-full h-2.5 overflow-hidden"
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.04)' }}
+                            >
+                                <div
+                                    className="h-full rounded-full transition-all duration-1000"
+                                    style={{
+                                        width: `${pct}%`,
+                                        background: `linear-gradient(90deg, ${grad.from}, ${grad.to})`,
+                                        boxShadow: `0 0 8px ${grad.from}40`,
+                                    }}
+                                />
+                            </div>
+                            <span className="text-xs font-bold text-white w-8 text-right shrink-0 tabular-nums">{val}</span>
                         </div>
-                        <span className="text-xs text-slate-300 font-medium w-8 text-right shrink-0">{val}</span>
-                    </div>
-                ))}
+                    )
+                })}
             </div>
         </div>
     )
@@ -114,47 +203,74 @@ function PerformanceModal({ staff, onClose }) {
     }, [staff.id])
 
     const stat = (label, val, unit = '') => (
-        <div className="bg-white/5 rounded-xl p-4 flex flex-col gap-1">
-            <p className="text-2xl font-bold text-white">
-                {val ?? '—'}{unit && <span className="text-base text-slate-400 ml-1">{unit}</span>}
+        <div
+            className="rounded-xl p-5 flex flex-col gap-1.5"
+            style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+            }}
+        >
+            <p className="text-2xl font-bold text-white tabular-nums">
+                {val ?? '—'}{unit && <span className="text-sm font-medium ml-1" style={{ color: 'var(--color-text-muted)' }}>{unit}</span>}
             </p>
-            <p className="text-xs text-slate-500">{label}</p>
+            <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{label}</p>
         </div>
     )
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-lg bg-slate-900 border border-white/12 rounded-2xl shadow-2xl overflow-hidden">
+            <div
+                className="absolute inset-0"
+                style={{ background: 'rgba(3,7,18,0.8)', backdropFilter: 'blur(8px)' }}
+                onClick={onClose}
+            />
+            <div
+                className="relative w-full max-w-lg rounded-2xl overflow-hidden"
+                style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    boxShadow: '0 32px 100px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.06)',
+                    animation: 'fadeDown 200ms cubic-bezier(.16,1,.3,1)',
+                }}
+            >
+                {/* Top accent line */}
+                <div className="h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.6), transparent)' }} />
+
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
+                <div
+                    className="flex items-center justify-between px-6 py-5"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
                     <div>
-                        <h2 className="text-white font-semibold">{staff.name}</h2>
-                        <p className="text-xs text-slate-500">{staff.role} · Performance Report</p>
+                        <h2 className="text-white font-bold">{staff.name}</h2>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>{staff.role} · Performance Report</p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                        className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
                     >
-                        <X size={15} />
+                        <X size={14} style={{ color: 'var(--color-text-muted)' }} />
                     </button>
                 </div>
 
                 {/* Body */}
-                <div className="px-6 py-5">
+                <div className="px-6 py-6">
                     {loading ? (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-4">
                             {Array.from({ length: 6 }).map((_, i) => (
-                                <Skeleton key={i} className="h-20 w-full" />
+                                <Skeleton key={i} className="h-24 w-full rounded-xl" />
                             ))}
                         </div>
                     ) : error ? (
-                        <div className="flex items-center gap-2 text-red-400 text-sm py-4">
+                        <div className="flex items-center gap-2 text-sm py-4" style={{ color: 'var(--color-danger-400)' }}>
                             <AlertTriangle size={16} />
                             {error}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-4">
                             {stat('Total Assigned', data?.totalAssigned)}
                             {stat('Resolved', data?.totalResolved)}
                             {stat('Avg Resolution', data?.avgResolutionHours?.toFixed(1), 'hrs')}
@@ -170,17 +286,22 @@ function PerformanceModal({ staff, onClose }) {
 }
 
 // ── Status badge ───────────────────────────────────────────────────────────────
-const STATUS_STYLES = {
-    OPEN: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    IN_PROGRESS: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
-    RESOLVED: 'bg-green-500/15 text-green-400 border border-green-500/30',
-    ESCALATED: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    REOPENED: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
+const STATUS_STYLE = {
+    OPEN:        { bg: 'rgba(14,165,233,0.1)',  border: 'rgba(14,165,233,0.2)',  text: '#38bdf8' },
+    IN_PROGRESS: { bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.2)',  text: '#818cf8' },
+    RESOLVED:    { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.2)',  text: '#34d399' },
+    ESCALATED:   { bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.2)',   text: '#f87171' },
+    REOPENED:    { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.2)',  text: '#fbbf24' },
 }
 
 function StatusBadge({ status }) {
+    const s = STATUS_STYLE[status] || { bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.2)', text: '#94a3b8' }
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status] ?? 'bg-slate-700 text-slate-300'}`}>
+        <span
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider"
+            style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.text }}
+        >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
             {status?.replace('_', ' ')}
         </span>
     )
@@ -251,71 +372,103 @@ export default function AdminAnalyticsPage() {
         (dashboard?.byPriority ?? []).map(({ priority, count }) => [priority, count])
     )
 
+    // Role-color avatar backgrounds
+    const roleColor = (role) => {
+        const map = {
+            MAINTENANCE: { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', text: '#fbbf24' },
+            SECURITY:    { bg: 'rgba(239,68,68,0.1)',  border: 'rgba(239,68,68,0.2)',  text: '#f87171' },
+        }
+        return map[role] ?? { bg: 'rgba(99,102,241,0.1)', border: 'rgba(99,102,241,0.2)', text: '#818cf8' }
+    }
+
     return (
-        <div className="min-h-screen bg-slate-900 flex">
+        <div className="min-h-screen flex" style={{ background: 'transparent' }}>
             <Sidebar user={user} onLogout={handleLogout} />
 
-            <main className="ml-64 flex-1 min-h-screen">
-                {/* ── Header ──────────────────────────────────────────────────── */}
-                <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-white/8 px-8 py-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-600/20 flex items-center justify-center">
-                            <BarChart3 size={18} className="text-indigo-400" />
+            <main className="ml-[17rem] flex-1 min-h-screen flex flex-col">
+                {/* ── Header ── */}
+                <header
+                    className="sticky top-0 z-30 px-8 py-4 flex items-center justify-between gap-4"
+                    style={{
+                        background: 'rgba(3,7,18,0.85)',
+                        backdropFilter: 'blur(20px)',
+                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                >
+                    <div className="flex items-center gap-4">
+                        <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center"
+                            style={{
+                                background: 'rgba(99,102,241,0.1)',
+                                border: '1px solid rgba(99,102,241,0.2)',
+                            }}
+                        >
+                            <BarChart3 size={20} style={{ color: '#818cf8' }} />
                         </div>
                         <div>
-                            <h1 className="text-xl font-semibold text-white">Analytics</h1>
-                            <p className="text-sm text-slate-500 mt-0.5">Campus-wide incident intelligence</p>
+                            <h1 className="text-xl font-bold text-white tracking-tight">Analytics</h1>
+                            <p className="text-xs mt-0.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
+                                Campus-wide incident intelligence
+                            </p>
                         </div>
                     </div>
 
                     {/* Department filter */}
-                    <div className="flex items-center gap-2">
-                        <input
-                            id="dept-filter-input"
-                            type="text"
+                    <div className="flex items-center gap-3">
+                        <Input
+                            placeholder="Department ID"
                             value={deptInput}
                             onChange={(e) => setDeptInput(e.target.value)}
-                            placeholder="Department ID (optional)"
-                            className="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-3 py-2 w-52 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 placeholder:text-slate-600"
+                            wrapperClassName="w-48"
                         />
-                        <button
-                            id="dept-filter-apply"
+                        <Button
+                            variant="primary"
                             onClick={() => setDepartmentId(deptInput.trim())}
-                            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
                         >
                             Apply
-                        </button>
+                        </Button>
                         {departmentId && (
                             <button
-                                id="dept-filter-clear"
                                 onClick={() => { setDepartmentId(''); setDeptInput('') }}
-                                className="px-3 py-2 rounded-xl border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white text-sm transition-colors"
+                                className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
                             >
-                                <X size={14} />
+                                <X size={14} style={{ color: 'var(--color-text-muted)' }} />
                             </button>
                         )}
                     </div>
                 </header>
 
-                <div className="px-8 py-8 space-y-8">
-                    {dashError ? (
-                        <div className="flex items-center gap-2 text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-sm">
-                            <AlertTriangle size={16} />
+                <div className="p-8 space-y-10 flex-1">
+                    {dashError && (
+                        <div
+                            className="flex items-center gap-2 rounded-xl px-5 py-4 text-sm font-medium"
+                            style={{
+                                background: 'rgba(239,68,68,0.08)',
+                                border: '1px solid rgba(239,68,68,0.2)',
+                                color: 'var(--color-danger-400)',
+                            }}
+                        >
+                            <AlertTriangle size={18} />
                             {dashError}
                         </div>
-                    ) : null}
+                    )}
 
-                    {/* ── Stats cards ─────────────────────────────────────────── */}
+                    {/* ── Stats ── */}
                     <section>
-                        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Overview</h2>
-                        <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className="text-base font-semibold text-white">Overview</h2>
+                            <div className="flex items-center gap-2">
+                                <span className="dot-live" />
+                                <span className="text-xs font-medium" style={{ color: 'var(--color-text-muted)' }}>Live data</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-wrap gap-5">
                             {dashLoading ? (
                                 Array.from({ length: 6 }).map((_, i) => (
-                                    <div key={i} className="flex-1 min-w-[160px] bg-white/5 border border-white/10 rounded-2xl p-5 space-y-3">
-                                        <Skeleton className="h-9 w-9" />
-                                        <Skeleton className="h-8 w-16" />
-                                        <Skeleton className="h-4 w-28" />
-                                    </div>
+                                    <StatCard key={i} loading color="bg-blue-600" icon={Activity} label="" />
                                 ))
                             ) : (
                                 <>
@@ -344,12 +497,12 @@ export default function AdminAnalyticsPage() {
                         </div>
                     </section>
 
-                    {/* ── Breakdown charts ─────────────────────────────────────── */}
+                    {/* ── Charts ── */}
                     <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {dashLoading ? (
                             <>
-                                <Skeleton className="h-56 rounded-2xl" />
-                                <Skeleton className="h-56 rounded-2xl" />
+                                <Skeleton className="h-64 rounded-2xl" />
+                                <Skeleton className="h-64 rounded-2xl" />
                             </>
                         ) : (
                             <>
@@ -359,53 +512,71 @@ export default function AdminAnalyticsPage() {
                         )}
                     </section>
 
-                    {/* ── Recent Activity ──────────────────────────────────────── */}
+                    {/* ── Recent Activity ── */}
                     <section>
-                        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Recent Activity</h2>
-                        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                        <h2 className="text-base font-semibold text-white mb-5">Recent Activity</h2>
+                        <div
+                            className="overflow-hidden rounded-2xl"
+                            style={{
+                                background: 'var(--surface-2)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                            }}
+                        >
                             {dashLoading ? (
-                                <div className="divide-y divide-white/5">
+                                <div className="space-y-0">
                                     {Array.from({ length: 5 }).map((_, i) => (
-                                        <div key={i} className="flex items-center gap-4 px-5 py-4">
+                                        <div key={i} className="flex items-center gap-4 px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                                             <Skeleton className="h-4 w-16" />
                                             <Skeleton className="h-4 flex-1" />
-                                            <Skeleton className="h-5 w-20" />
+                                            <Skeleton className="h-6 w-20 rounded-full" />
                                             <Skeleton className="h-4 w-20" />
                                         </div>
                                     ))}
                                 </div>
                             ) : recentActivity.length === 0 ? (
-                                <div className="py-12 text-center text-slate-500 text-sm">No recent activity.</div>
+                                <div className="py-16 text-center text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                                    No recent activity.
+                                </div>
                             ) : (
-                                <table className="w-full text-sm">
+                                <table className="w-full text-sm text-left">
                                     <thead>
-                                        <tr className="border-b border-white/8">
-                                            <th className="text-left text-xs font-semibold text-slate-500 px-5 py-3 uppercase tracking-wide">Incident #</th>
-                                            <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide">Title</th>
-                                            <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide hidden md:table-cell">Status</th>
-                                            <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide hidden lg:table-cell">Date</th>
-                                            <th className="w-8 px-4" />
+                                        <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            {['Incident #', 'Title', 'Status', 'Date', ''].map((h, i) => (
+                                                <th
+                                                    key={i}
+                                                    className={`px-6 py-4 text-[10px] font-bold uppercase tracking-[0.1em] ${i >= 2 && i < 4 ? 'hidden md:table-cell' : ''}`}
+                                                    style={{ color: 'var(--color-text-muted)' }}
+                                                >
+                                                    {h}
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-white/5">
+                                    <tbody>
                                         {recentActivity.slice(0, 10).map((item) => (
                                             <tr
                                                 key={item.id}
                                                 onClick={() => navigate(`/incidents/${item.id}`)}
-                                                className="hover:bg-white/5 cursor-pointer transition-colors"
+                                                className="cursor-pointer group transition-all duration-150"
+                                                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.04)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = ''}
                                             >
-                                                <td className="px-5 py-3 text-indigo-400 font-mono text-xs">
+                                                <td className="px-6 py-4 font-mono text-xs group-hover:text-primary-400 transition-colors" style={{ color: 'var(--color-text-muted)' }}>
                                                     #{item.incidentNumber ?? '—'}
                                                 </td>
-                                                <td className="px-4 py-3 text-white text-sm max-w-[260px] truncate">{item.title}</td>
-                                                <td className="px-4 py-3 hidden md:table-cell">
+                                                <td className="px-6 py-4 font-medium max-w-[300px] truncate group-hover:text-primary-300 transition-colors" style={{ color: 'var(--color-text-primary)' }}>
+                                                    {item.title}
+                                                </td>
+                                                <td className="px-6 py-4 hidden md:table-cell">
                                                     <StatusBadge status={item.status} />
                                                 </td>
-                                                <td className="px-4 py-3 text-slate-500 text-xs hidden lg:table-cell">
+                                                <td className="px-6 py-4 text-xs hidden md:table-cell" style={{ color: 'var(--color-text-muted)' }}>
                                                     {formatDate(item.createdAt)}
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <ChevronRight size={14} className="text-slate-600" />
+                                                <td className="px-6 py-4">
+                                                    <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" style={{ color: 'var(--color-text-muted)' }} />
                                                 </td>
                                             </tr>
                                         ))}
@@ -415,54 +586,82 @@ export default function AdminAnalyticsPage() {
                         </div>
                     </section>
 
-                    {/* ── Staff Performance ─────────────────────────────────────── */}
+                    {/* ── Staff Performance ── */}
                     <section>
-                        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Staff Performance</h2>
-                        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+                        <h2 className="text-base font-semibold text-white mb-5">Staff Performance</h2>
+                        <div
+                            className="overflow-hidden rounded-2xl"
+                            style={{
+                                background: 'var(--surface-2)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                            }}
+                        >
                             {staffLoading ? (
-                                <div className="divide-y divide-white/5">
+                                <div>
                                     {Array.from({ length: 4 }).map((_, i) => (
-                                        <div key={i} className="flex items-center gap-4 px-5 py-4">
-                                            <Skeleton className="h-8 w-8 rounded-full" />
+                                        <div key={i} className="flex items-center gap-4 px-6 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                            <Skeleton className="h-10 w-10 rounded-full" />
                                             <Skeleton className="h-4 w-32" />
                                             <Skeleton className="h-4 w-20" />
                                             <div className="ml-auto">
-                                                <Skeleton className="h-8 w-28" />
+                                                <Skeleton className="h-9 w-32 rounded-lg" />
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : staff.length === 0 ? (
-                                <div className="py-12 text-center text-slate-500 text-sm">No staff members found.</div>
+                                <div className="py-16 text-center text-sm font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                                    No staff members found.
+                                </div>
                             ) : (
-                                <div className="divide-y divide-white/5">
-                                    {staff.map((member) => (
-                                        <div key={member.id} className="flex items-center gap-4 px-5 py-4">
-                                            <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                                                <Users size={14} className="text-indigo-400" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-white truncate">{member.name}</p>
-                                                <p className="text-xs text-slate-500">{member.role} · {member.email}</p>
-                                            </div>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${member.staffState === 'AVAILABLE'
-                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                : member.staffState === 'BUSY'
-                                                    ? 'bg-orange-500/10 text-orange-400 border-orange-500/20'
-                                                    : 'bg-slate-700/40 text-slate-400 border-slate-600/30'
-                                                }`}>
-                                                {member.staffState ?? 'UNKNOWN'}
-                                            </span>
-                                            <button
-                                                id={`staff-perf-${member.id}`}
-                                                onClick={() => setSelectedStaff(member)}
-                                                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white text-xs font-medium transition-all duration-150"
+                                <div>
+                                    {staff.map((member) => {
+                                        const rc = roleColor(member.role)
+                                        return (
+                                            <div
+                                                key={member.id}
+                                                className="flex items-center gap-4 px-6 py-5 transition-colors cursor-default group"
+                                                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.03)'}
+                                                onMouseLeave={e => e.currentTarget.style.background = ''}
                                             >
-                                                <TrendingUp size={12} />
-                                                View Performance
-                                            </button>
-                                        </div>
-                                    ))}
+                                                <div
+                                                    className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold"
+                                                    style={{
+                                                        background: rc.bg,
+                                                        border: `1px solid ${rc.border}`,
+                                                        color: rc.text,
+                                                    }}
+                                                >
+                                                    {(member.name ?? '?')[0].toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-bold text-white truncate">{member.name}</p>
+                                                    <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                                                        {member.role} · {member.email}
+                                                    </p>
+                                                </div>
+
+                                                <Badge
+                                                    variant={member.staffState === 'AVAILABLE' ? 'success' : member.staffState === 'BUSY' ? 'warning' : 'neutral'}
+                                                    className="hidden sm:inline-flex"
+                                                >
+                                                    {member.staffState ?? 'UNKNOWN'}
+                                                </Badge>
+
+                                                <Button
+                                                    id={`staff-perf-${member.id}`}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setSelectedStaff(member)}
+                                                    icon={TrendingUp}
+                                                >
+                                                    Performance
+                                                </Button>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -470,7 +669,7 @@ export default function AdminAnalyticsPage() {
                 </div>
             </main>
 
-            {/* ── Performance Modal ──────────────────────────────────────────── */}
+            {/* ── Performance Modal ── */}
             {selectedStaff && (
                 <PerformanceModal
                     staff={selectedStaff}

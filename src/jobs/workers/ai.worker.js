@@ -8,7 +8,7 @@ function createAIWorker({ openai, prisma, redis }) {
       const { incidentId, feedbackText, score } = job.data
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'llama-3.1-8b-instant',
         messages: [{
           role: 'system',
           content: 'You are analyzing campus incident feedback. Classify the sentiment as POSITIVE, NEUTRAL, or NEGATIVE and extract key issues in 1-2 sentences. Respond with JSON: { sentiment: string, summary: string }'
@@ -38,7 +38,7 @@ function createAIWorker({ openai, prisma, redis }) {
       const { title, description } = job.data
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'llama-3.1-8b-instant',
         messages: [{
           role: 'system',
           content: 'You classify campus incidents. Given title and description, return JSON: { category: string, priority: string, suggestedDepartment: string } where category is one of MAINTENANCE/SECURITY/INFRASTRUCTURE/CLEANLINESS/EMERGENCY/OTHER and priority is LOW/MEDIUM/HIGH/CRITICAL'
@@ -79,7 +79,7 @@ function createAIWorker({ openai, prisma, redis }) {
         .join('\n')
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'llama-3.1-8b-instant',
         messages: [{
           role: 'system',
           content: 'You generate brief daily campus operations summaries for department heads. Be concise and actionable.'

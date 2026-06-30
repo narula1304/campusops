@@ -7,6 +7,7 @@ import {
     Paperclip,
     Loader2,
     MessageSquare,
+    Info,
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import SLACountdown from '../components/SLACountdown'
@@ -14,41 +15,43 @@ import { useAuth } from '../context/AuthContext'
 import { getIncident } from '../api/incidents'
 import client from '../api/client'
 import { uploadToCloudinary } from '../utils/uploadToCloudinary'
+import { Badge } from '../components/ui/Badge'
+import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
 
 // ── Badge helpers ──────────────────────────────────────────────────────────────
-const PRIORITY_STYLES = {
-    CRITICAL: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    HIGH: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
-    MEDIUM: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-    LOW: 'bg-green-500/15 text-green-400 border border-green-500/30',
-}
-const STATUS_STYLES = {
-    OPEN: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    IN_PROGRESS: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
-    RESOLVED: 'bg-green-500/15 text-green-400 border border-green-500/30',
-    ESCALATED: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    REOPENED: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
-}
-
 function PriorityBadge({ priority }) {
+    const variantMap = {
+        CRITICAL: 'danger',
+        HIGH: 'warning',
+        MEDIUM: 'info',
+        LOW: 'success',
+    }
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_STYLES[priority] ?? 'bg-slate-700 text-slate-300'}`}>
+        <Badge variant={variantMap[priority] || 'neutral'} className="px-2 py-0.5">
             {priority}
-        </span>
+        </Badge>
     )
 }
 function StatusBadge({ status }) {
+    const variantMap = {
+        OPEN: 'info',
+        IN_PROGRESS: 'primary',
+        RESOLVED: 'success',
+        ESCALATED: 'danger',
+        REOPENED: 'warning',
+    }
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[status] ?? 'bg-slate-700 text-slate-300'}`}>
+        <Badge variant={variantMap[status] || 'neutral'} className="px-2 py-0.5">
             {status?.replace('_', ' ')}
-        </span>
+        </Badge>
     )
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
-    'bg-indigo-600', 'bg-violet-600', 'bg-emerald-600',
-    'bg-rose-600', 'bg-amber-600', 'bg-cyan-600', 'bg-pink-600',
+    'bg-primary-600', 'bg-violet-600', 'bg-success-600',
+    'bg-danger-600', 'bg-warning-600', 'bg-info-600', 'bg-pink-600',
 ]
 function avatarColor(name = '') {
     let hash = 0
@@ -58,9 +61,9 @@ function avatarColor(name = '') {
 
 function Avatar({ name, size = 'sm' }) {
     const initial = (name ?? '?')[0].toUpperCase()
-    const sz = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-8 h-8 text-sm'
+    const sz = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm'
     return (
-        <div className={`${sz} ${avatarColor(name)} rounded-full flex items-center justify-center text-white font-bold shrink-0`}>
+        <div className={`${sz} ${avatarColor(name)} rounded-full flex items-center justify-center text-white font-bold shrink-0 shadow-sm border border-black/10`}>
             {initial}
         </div>
     )
@@ -68,7 +71,7 @@ function Avatar({ name, size = 'sm' }) {
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
 function Skeleton({ className = '' }) {
-    return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />
+    return <div className={`animate-pulse rounded-lg bg-surface-hover ${className}`} />
 }
 
 // ── Message bubble ────────────────────────────────────────────────────────────
@@ -78,31 +81,51 @@ function MessageBubble({ msg, isMine }) {
         : ''
 
     return (
-        <div className={`flex gap-2.5 ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
+        <div className={`flex gap-3 w-full ${isMine ? 'flex-row-reverse' : 'flex-row'}`}>
             <Avatar name={msg.sender?.name ?? msg.senderName ?? '?'} />
-            <div className={`flex flex-col gap-1 max-w-[70%] ${isMine ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-baseline gap-1.5">
-                    <span className={`text-xs font-semibold ${isMine ? 'text-indigo-300' : 'text-slate-300'}`}>
+            <div className={`flex flex-col gap-1 max-w-[75%] lg:max-w-[60%] ${isMine ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-baseline gap-2 px-1">
+                    <span className={`text-xs font-bold ${isMine ? 'text-primary-400' : 'text-text-primary'}`}>
                         {isMine ? 'You' : (msg.sender?.name ?? msg.senderName ?? 'Unknown')}
                     </span>
-                    <span className="text-xs text-slate-600">{msg.sender?.role ?? msg.senderRole}</span>
-                    <span className="text-xs text-slate-600">{time}</span>
+                    <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">{msg.sender?.role ?? msg.senderRole}</span>
+                    <span className="text-[10px] font-medium text-text-muted">{time}</span>
                 </div>
 
-                <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed break-words ${
-                    isMine
-                        ? 'bg-indigo-600 text-white rounded-tr-sm'
-                        : 'bg-white/8 text-slate-200 rounded-tl-sm'
-                }`}>
+                <div
+                    className={`px-4 py-3 text-sm leading-relaxed break-words ${
+                        isMine
+                            ? 'text-white rounded-2xl rounded-tr-sm'
+                            : 'text-white rounded-2xl rounded-tl-sm'
+                    }`}
+                    style={isMine
+                        ? {
+                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                            boxShadow: '0 4px 16px -4px rgba(99,102,241,0.4)',
+                        }
+                        : {
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1px solid rgba(255,255,255,0.07)',
+                            boxShadow: '0 2px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
+                            backdropFilter: 'blur(8px)',
+                            color: 'var(--color-text-primary)',
+                        }
+                    }
+                >
                     {msg.text}
                     {msg.attachmentUrl && (
                         <a
                             href={msg.attachmentUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block mt-2 underline text-indigo-200 text-xs"
+                            className="block mt-3 px-3 py-2 rounded-lg flex items-center gap-2 text-xs font-medium transition-colors"
+                            style={isMine
+                                ? { background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff' }
+                                : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--color-text-secondary)' }
+                            }
                         >
-                            📎 Attachment
+                            <Paperclip size={14} />
+                            View Attachment
                         </a>
                     )}
                 </div>
@@ -131,44 +154,57 @@ function IncidentPanel({ incidentId }) {
     const deadline = incident?.sla?.deadlineAt ?? incident?.slaDeadlineAt ?? null
 
     return (
-        <aside className="w-80 shrink-0 border-l border-white/8 bg-slate-900/60 flex flex-col">
-            <div className="px-5 py-4 border-b border-white/8">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Incident Summary</h2>
+        <aside
+            className="w-80 shrink-0 flex-col hidden lg:flex"
+            style={{
+                background: 'var(--color-bg-base)',
+                borderLeft: '1px solid rgba(255,255,255,0.05)',
+            }}
+        >
+            <div className="px-6 py-5 border-b border-border-subtle bg-surface-hover/50 flex items-center gap-2">
+                <Info size={16} className="text-text-muted" />
+                <h2 className="text-xs font-bold text-text-secondary uppercase tracking-widest">Incident Summary</h2>
             </div>
-            <div className="px-5 py-5 space-y-4 overflow-y-auto flex-1">
+            <div className="px-6 py-6 space-y-6 overflow-y-auto flex-1">
                 {loading ? (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                         <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-5 w-full" />
+                        <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-4 w-16" />
                         <Skeleton className="h-4 w-28" />
                     </div>
                 ) : incident ? (
                     <>
-                        <p className="text-xs font-mono text-indigo-400">
-                            #{incident.incidentNumber ?? '—'}
-                        </p>
-                        <p className="text-sm font-semibold text-white leading-snug">
-                            {incident.title}
-                        </p>
+                        <div>
+                            <p className="text-xs font-bold font-mono text-primary-500 mb-1">
+                                #{incident.incidentNumber ?? '—'}
+                            </p>
+                            <p className="text-base font-bold text-text-primary leading-snug">
+                                {incident.title}
+                            </p>
+                        </div>
+                        
                         <div className="flex flex-wrap gap-2">
                             <StatusBadge status={incident.status} />
                             <PriorityBadge priority={incident.priority} />
                         </div>
-                        <div className="space-y-2 pt-1 border-t border-white/8">
+                        
+                        <div className="space-y-5 pt-5 border-t border-border-subtle">
                             <InfoRow label="Category" value={incident.category} />
                             <InfoRow
                                 label="Assigned To"
                                 value={incident.assignedTo?.name ?? (incident.assignedToId ? 'Assigned' : 'Unassigned')}
                             />
-                            <div>
-                                <p className="text-xs text-slate-500 mb-1">SLA</p>
+                            <div className="bg-surface p-4 rounded-xl border border-border-subtle">
+                                <p className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-2">SLA Status</p>
                                 <SLACountdown deadline={deadline} />
                             </div>
                         </div>
                     </>
                 ) : (
-                    <p className="text-slate-500 text-sm">Could not load incident details.</p>
+                    <div className="text-center py-10 bg-surface-hover/30 rounded-xl border border-border-subtle">
+                        <p className="text-text-muted text-sm font-medium">Could not load incident details.</p>
+                    </div>
                 )}
             </div>
         </aside>
@@ -178,8 +214,8 @@ function IncidentPanel({ incidentId }) {
 function InfoRow({ label, value }) {
     return (
         <div>
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="text-sm text-slate-300">{value ?? '—'}</p>
+            <p className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-1">{label}</p>
+            <p className="text-sm font-medium text-text-primary">{value ?? '—'}</p>
         </div>
     )
 }
@@ -228,7 +264,7 @@ export default function ChatPage() {
     // ── Auto-scroll to bottom ──────────────────────────────────────────────────
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages])
+    }, [messages, typingIndicator])
 
     // ── Socket join/leave + real-time events ───────────────────────────────────
     useEffect(() => {
@@ -335,54 +371,54 @@ export default function ChatPage() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 flex">
+        <div className="min-h-screen bg-bg-base flex">
             <Sidebar user={user} onLogout={handleLogout} />
 
-            <main className="ml-64 flex-1 flex flex-col min-h-screen">
+            <main className="ml-[17rem] flex-1 flex flex-col min-h-screen">
                 {/* ── Header ──────────────────────────────────────────────────── */}
-                <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-white/8 px-6 py-3.5 flex items-center gap-3">
+                <header className="sticky top-0 z-30 bg-bg-base/80 backdrop-blur-md border-b border-border-subtle px-6 py-4 flex items-center gap-4">
                     <button
                         onClick={() => navigate(`/incidents/${incidentId}`)}
-                        className="flex items-center gap-2 text-slate-400 hover:text-white text-sm transition-colors group"
+                        className="flex items-center justify-center w-8 h-8 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors group"
                     >
-                        <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+                        <ArrowLeft size={18} className="group-hover:-translate-x-0.5 transition-transform" />
                     </button>
-                    <div className="w-8 h-8 rounded-xl bg-indigo-600/20 flex items-center justify-center">
-                        <MessageSquare size={15} className="text-indigo-400" />
+                    <div className="w-10 h-10 rounded-xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center shadow-sm">
+                        <MessageSquare size={20} className="text-primary-500" />
                     </div>
                     <div>
-                        <h1 className="text-base font-semibold text-white leading-tight">Incident Chat</h1>
-                        <p className="text-xs text-slate-500">Incident #{incidentId?.slice(0, 8)}</p>
+                        <h1 className="text-lg font-bold text-text-primary leading-tight">Incident Chat</h1>
+                        <p className="text-xs font-medium text-text-secondary mt-0.5">#{incidentId?.slice(0, 8)}</p>
                     </div>
                 </header>
 
                 {/* ── Body: chat + sidebar ─────────────────────────────────────── */}
-                <div className="flex flex-1 overflow-hidden">
+                <div className="flex flex-1 overflow-hidden bg-[url('/noise.png')] bg-repeat opacity-95">
 
                     {/* ── Chat column ─────────────────────────────────────────── */}
-                    <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 flex flex-col overflow-hidden relative">
 
                         {/* Message list */}
-                        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-6">
                             {historyLoading ? (
-                                <div className="space-y-4">
+                                <div className="space-y-6">
                                     {Array.from({ length: 5 }).map((_, i) => (
-                                        <div key={i} className={`flex gap-2.5 ${i % 2 === 0 ? '' : 'flex-row-reverse'}`}>
-                                            <Skeleton className="w-7 h-7 rounded-full shrink-0" />
-                                            <div className="space-y-1 max-w-[60%]">
-                                                <Skeleton className="h-3 w-20" />
-                                                <Skeleton className={`h-10 ${i % 3 === 0 ? 'w-64' : 'w-40'} rounded-2xl`} />
+                                        <div key={i} className={`flex gap-3 ${i % 2 === 0 ? '' : 'flex-row-reverse'}`}>
+                                            <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                                            <div className="space-y-2 max-w-[60%]">
+                                                <Skeleton className="h-4 w-24" />
+                                                <Skeleton className={`h-16 ${i % 3 === 0 ? 'w-64' : 'w-48'} rounded-2xl`} />
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : messages.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-full text-center py-16">
-                                    <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-                                        <MessageSquare size={24} className="text-slate-600" />
+                                    <div className="w-16 h-16 rounded-full bg-surface-hover border border-border-subtle flex items-center justify-center mb-4">
+                                        <MessageSquare size={28} className="text-text-muted" />
                                     </div>
-                                    <p className="text-slate-400 font-medium">No messages yet</p>
-                                    <p className="text-slate-600 text-sm mt-1">Start the conversation below.</p>
+                                    <p className="text-text-primary font-bold text-lg">No messages yet</p>
+                                    <p className="text-text-secondary text-sm font-medium mt-1">Start the conversation below.</p>
                                 </div>
                             ) : (
                                 messages.map((msg, i) => (
@@ -393,30 +429,50 @@ export default function ChatPage() {
                                     />
                                 ))
                             )}
-                            <div ref={bottomRef} />
-                        </div>
-
-                        {/* Typing indicator */}
-                        <div className="px-6 h-5">
                             {typingIndicator && (
-                                <p className="text-xs text-slate-500 italic">{typingIndicator}</p>
+                                <div className="flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                    <div className="w-10 h-10 rounded-full bg-surface-hover border border-border-subtle flex items-center justify-center shrink-0">
+                                        <div className="flex gap-1">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: '0ms' }} />
+                                            <span className="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: '150ms' }} />
+                                            <span className="w-1.5 h-1.5 rounded-full bg-text-muted animate-bounce" style={{ animationDelay: '300ms' }} />
+                                        </div>
+                                    </div>
+                                    <p className="text-xs font-medium text-text-muted italic">{typingIndicator}</p>
+                                </div>
                             )}
+                            <div ref={bottomRef} className="h-4" />
                         </div>
 
                         {/* Input bar */}
-                        <div className="px-6 py-4 border-t border-white/8">
-                            <div className="flex items-end gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3">
+                        <div
+                            className="p-4 shrink-0"
+                            style={{
+                                background: 'rgba(3,7,18,0.85)',
+                                backdropFilter: 'blur(20px)',
+                                borderTop: '1px solid rgba(255,255,255,0.05)',
+                            }}
+                        >
+                            <div
+                                className="flex items-end gap-2 rounded-2xl p-2 transition-all"
+                                style={{
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.07)',
+                                    boxShadow: '0 2px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)',
+                                }}
+                            >
                                 {/* Attachment */}
-                                <button
+                                <Button
                                     id="chat-attach-btn"
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
                                     disabled={uploading || sending}
-                                    className="shrink-0 text-slate-500 hover:text-indigo-400 transition-colors disabled:opacity-40"
-                                    title="Attach file"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="shrink-0 h-10 w-10 text-text-muted hover:text-text-primary hover:bg-surface-hover"
                                 >
-                                    {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
-                                </button>
+                                    {uploading ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
+                                </Button>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -433,21 +489,23 @@ export default function ChatPage() {
                                     onChange={handleInputChange}
                                     onKeyDown={handleKeyDown}
                                     onBlur={emitStopTyping}
-                                    placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
-                                    className="flex-1 bg-transparent text-white text-sm placeholder:text-slate-600 focus:outline-none resize-none leading-5 max-h-32 overflow-y-auto"
+                                    placeholder="Type your message... (Enter to send)"
+                                    className="flex-1 bg-transparent text-text-primary text-sm font-medium placeholder:text-text-muted placeholder:font-normal focus:outline-none resize-none py-2.5 max-h-32 overflow-y-auto"
                                     style={{ fieldSizing: 'content' }}
                                 />
 
                                 {/* Send */}
-                                <button
+                                <Button
                                     id="chat-send-btn"
                                     type="button"
                                     onClick={() => sendMessage(inputText)}
-                                    disabled={sending || (!inputText.trim())}
-                                    className="shrink-0 w-8 h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all"
+                                    disabled={sending || (!inputText.trim() && !uploading)}
+                                    variant="primary"
+                                    size="icon"
+                                    className="shrink-0 h-10 w-10 shadow-primary-500/25"
                                 >
-                                    {sending ? <Loader2 size={14} className="animate-spin text-white" /> : <Send size={14} className="text-white" />}
-                                </button>
+                                    {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="ml-0.5" />}
+                                </Button>
                             </div>
                         </div>
                     </div>

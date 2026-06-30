@@ -1,30 +1,82 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'
+import { ShieldAlert, ArrowLeft, Home } from 'lucide-react'
+import { Button } from '../components/ui/Button'
 
 export default function UnauthorizedPage() {
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="text-center max-w-md">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/15 border border-red-500/20 mb-6">
-          <svg className="w-10 h-10 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-          </svg>
-        </div>
+    const navigate = useNavigate()
 
-        <h1 className="text-3xl font-bold text-white mb-3">Access Denied</h1>
-        <p className="text-slate-400 mb-8">
-          You don't have permission to view this page.
-        </p>
-
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors duration-200"
+    return (
+        <div
+            className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
+            style={{ background: 'var(--color-bg-base)' }}
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back to Dashboard
-        </Link>
-      </div>
-    </div>
-  );
+            {/* Background danger orb */}
+            <div className="absolute pointer-events-none" style={{
+                top: '-20%', left: '-10%', width: '50%', height: '50%',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(239,68,68,0.12) 0%, transparent 70%)',
+                animation: 'float 10s ease-in-out infinite',
+            }} />
+            <div className="absolute pointer-events-none" style={{
+                bottom: '-15%', right: '-10%', width: '40%', height: '40%',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(239,68,68,0.07) 0%, transparent 70%)',
+                animation: 'float 13s ease-in-out infinite reverse',
+            }} />
+
+            <div className="text-center max-w-md relative z-10 animate-zoom-in">
+                {/* Icon */}
+                <div
+                    className="inline-flex items-center justify-center w-24 h-24 rounded-3xl mb-8 mx-auto"
+                    style={{
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.25)',
+                        boxShadow: '0 16px 48px -8px rgba(239,68,68,0.3)',
+                    }}
+                >
+                    <ShieldAlert size={44} style={{ color: 'var(--color-danger-400)' }} />
+                </div>
+
+                {/* Code label */}
+                <div
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5 text-[10px] font-bold uppercase tracking-[0.15em]"
+                    style={{
+                        background: 'rgba(239,68,68,0.08)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        color: 'var(--color-danger-400)',
+                    }}
+                >
+                    403 · Access Denied
+                </div>
+
+                <h1 className="text-4xl font-bold text-white mb-4 tracking-tight">
+                    Unauthorized
+                </h1>
+                <p className="text-base leading-relaxed mb-10" style={{ color: 'var(--color-text-secondary)' }}>
+                    You don't have permission to view this page. If you believe this is a mistake, please contact your administrator.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => navigate(-1)}
+                        icon={ArrowLeft}
+                        className="w-full sm:w-auto"
+                    >
+                        Go Back
+                    </Button>
+                    <Button
+                        variant="primary"
+                        size="lg"
+                        onClick={() => navigate('/dashboard')}
+                        icon={Home}
+                        className="w-full sm:w-auto"
+                    >
+                        Dashboard
+                    </Button>
+                </div>
+            </div>
+        </div>
+    )
 }

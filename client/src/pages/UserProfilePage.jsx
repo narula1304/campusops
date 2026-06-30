@@ -1,100 +1,139 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import {
-    User,
-    Mail,
-    Phone,
-    Bell,
-    Lock,
-    Save,
-    ShieldCheck,
-    Wrench,
-    Loader2,
-} from 'lucide-react'
+import { User, Phone, Bell, Lock, Save, BellRing, BellOff, Mail, MessageSquare, CheckCircle2 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import { useAuth } from '../context/AuthContext'
 import { updateMe } from '../api/users'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
-const ROLE_STYLES = {
-    ADMIN: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
-    FACULTY: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    STUDENT: 'bg-green-500/15 text-green-400 border border-green-500/30',
-    MAINTENANCE: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
-    SECURITY: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
+// ── Role styling ────────────────────────────────────────────────────────────────
+const ROLE_META = {
+    ADMIN:       { label: 'Admin',       grad: 'from-violet-500 to-purple-600',  bg: 'rgba(168,85,247,0.12)',  border: 'rgba(168,85,247,0.3)',  text: '#c084fc' },
+    FACULTY:     { label: 'Faculty',     grad: 'from-sky-500 to-blue-600',       bg: 'rgba(14,165,233,0.12)',  border: 'rgba(14,165,233,0.3)',  text: '#38bdf8' },
+    STUDENT:     { label: 'Student',     grad: 'from-emerald-500 to-teal-600',   bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.3)',  text: '#34d399' },
+    MAINTENANCE: { label: 'Maintenance', grad: 'from-amber-500 to-orange-600',   bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.3)',  text: '#fbbf24' },
+    SECURITY:    { label: 'Security',    grad: 'from-orange-500 to-red-600',     bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.3)',   text: '#f87171' },
 }
 
-function RoleBadge({ role }) {
+// ── Toggle switch ──────────────────────────────────────────────────────────────
+function Toggle({ id, label, description, value, onChange, icon: Icon }) {
     return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${ROLE_STYLES[role] ?? 'bg-slate-700 text-slate-300'}`}>
-            {role}
-        </span>
+        <label
+            htmlFor={id}
+            className="flex items-center justify-between gap-4 p-4 rounded-xl cursor-pointer transition-all duration-200 group"
+            style={{
+                background: value ? 'rgba(99,102,241,0.06)' : 'rgba(255,255,255,0.02)',
+                border: `1px solid ${value ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)'}`,
+            }}
+        >
+            <div className="flex items-center gap-3">
+                <div
+                    className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                    style={{
+                        background: value ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${value ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                    }}
+                >
+                    <Icon size={15} style={{ color: value ? 'var(--color-primary-400)' : 'var(--color-text-muted)' }} />
+                </div>
+                <div>
+                    <p className="text-sm font-semibold" style={{ color: value ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>{label}</p>
+                    {description && <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{description}</p>}
+                </div>
+            </div>
+
+            {/* Toggle pill */}
+            <div className="relative flex-shrink-0">
+                <input id={id} type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} className="sr-only" />
+                <div
+                    className="w-11 h-6 rounded-full transition-all duration-300 relative"
+                    style={{ background: value ? 'var(--color-primary-500)' : 'rgba(255,255,255,0.1)' }}
+                >
+                    <div
+                        className="absolute top-0.5 w-5 h-5 rounded-full shadow-md transition-all duration-300"
+                        style={{
+                            left: value ? '22px' : '2px',
+                            background: '#fff',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                        }}
+                    />
+                </div>
+            </div>
+        </label>
     )
 }
 
-function inputCls() {
-    return 'w-full px-4 py-2.5 rounded-lg bg-white/8 border border-white/12 hover:border-white/20 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition'
-}
-
-function SectionCard({ title, icon: Icon, children }) {
+// ── Section wrapper ───────────────────────────────────────────────────────────
+function Section({ title, children }) {
     return (
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-white/8 bg-white/3">
-                <Icon size={15} className="text-slate-400" />
+        <div
+            className="overflow-hidden rounded-2xl"
+            style={{
+                background: 'var(--surface-2)',
+                border: '1px solid rgba(255,255,255,0.05)',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+            }}
+        >
+            <div
+                className="px-6 py-4"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}
+            >
                 <h2 className="text-sm font-semibold text-white">{title}</h2>
             </div>
-            <div className="px-6 py-5">{children}</div>
+            <div className="px-6 py-6">{children}</div>
         </div>
     )
 }
 
+// ── InfoRow ────────────────────────────────────────────────────────────────────
+function InfoRow({ label, value }) {
+    return (
+        <div className="flex flex-col gap-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+            <p className="text-sm font-medium text-white">{value ?? '—'}</p>
+        </div>
+    )
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
 export default function UserProfilePage() {
     const { user, logout } = useAuth()
     const navigate = useNavigate()
 
-    // Profile edit state, seeded from auth context
-    const [name, setName] = useState(user?.name ?? '')
-    const [phone, setPhone] = useState(user?.phone ?? '')
+    const [name,         setName]         = useState(user?.name ?? '')
+    const [phone,        setPhone]        = useState(user?.phone ?? '')
     const [prefRealtime, setPrefRealtime] = useState(user?.prefRealtime ?? true)
-    const [prefEmail, setPrefEmail] = useState(user?.prefEmail ?? false)
-    const [prefSms, setPrefSms] = useState(user?.prefSms ?? false)
-    const [saving, setSaving] = useState(false)
+    const [prefEmail,    setPrefEmail]    = useState(user?.prefEmail ?? false)
+    const [prefSms,      setPrefSms]      = useState(user?.prefSms ?? false)
+    const [saving,       setSaving]       = useState(false)
 
-    // Password fields (visual only)
-    const [oldPwd, setOldPwd] = useState('')
-    const [newPwd, setNewPwd] = useState('')
+    const [oldPwd,     setOldPwd]     = useState('')
+    const [newPwd,     setNewPwd]     = useState('')
     const [confirmPwd, setConfirmPwd] = useState('')
 
     const handleLogout = () => { logout(); navigate('/login') }
+
+    const role   = user?.role
+    const roleMeta = ROLE_META[role] ?? ROLE_META.STUDENT
+    const initials = (user?.name ?? '?')[0].toUpperCase()
+    const isStaff = ['MAINTENANCE', 'SECURITY', 'FACULTY', 'ADMIN'].includes(role)
 
     const handleSave = async (e) => {
         e.preventDefault()
         if (!name.trim()) { toast.error('Name cannot be empty'); return }
         setSaving(true)
         try {
-            await updateMe({
-                name: name.trim(),
-                phone: phone.trim() || undefined,
-                prefRealtime,
-                prefEmail,
-                prefSms,
-            })
-            // Update localStorage cached user
+            await updateMe({ name: name.trim(), phone: phone.trim() || undefined, prefRealtime, prefEmail, prefSms })
             const stored = localStorage.getItem('campusops_user')
             if (stored) {
                 try {
                     const parsed = JSON.parse(stored)
-                    localStorage.setItem('campusops_user', JSON.stringify({
-                        ...parsed,
-                        name: name.trim(),
-                        phone: phone.trim() || parsed.phone,
-                        prefRealtime,
-                        prefEmail,
-                        prefSms,
-                    }))
+                    localStorage.setItem('campusops_user', JSON.stringify({ ...parsed, name: name.trim(), phone: phone.trim() || parsed.phone, prefRealtime, prefEmail, prefSms }))
                 } catch { /* ignore */ }
             }
-            toast.success('Profile updated successfully!')
+            toast.success('Profile updated!')
         } catch (err) {
             toast.error(err?.response?.data?.error?.message ?? 'Failed to update profile')
         } finally {
@@ -107,186 +146,176 @@ export default function UserProfilePage() {
         toast('Password change coming soon', { icon: '🔐' })
     }
 
-    const isStaff = ['MAINTENANCE', 'SECURITY', 'FACULTY', 'ADMIN'].includes(user?.role)
-
     return (
-        <div className="min-h-screen bg-slate-900 flex">
+        <div className="min-h-screen flex" style={{ background: 'transparent' }}>
             <Sidebar user={user} onLogout={handleLogout} />
 
-            <main className="ml-64 flex-1 min-h-screen">
-                {/* ── Header ──────────────────────────────────────────────────── */}
-                <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-white/8 px-8 py-4">
-                    <h1 className="text-xl font-semibold text-white">My Profile</h1>
-                    <p className="text-sm text-slate-500 mt-0.5">Manage your account settings and preferences</p>
-                </header>
+            <main className="ml-[17rem] flex-1 min-h-screen flex flex-col">
 
-                <div className="px-8 py-8 max-w-2xl space-y-6">
+                {/* ── Hero Profile Header ── */}
+                <div className="relative overflow-hidden" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    {/* Gradient backdrop */}
+                    <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                            background: `linear-gradient(135deg, ${roleMeta.bg.replace('0.12', '0.15')} 0%, transparent 70%)`,
+                        }}
+                    />
+                    <div className="absolute inset-0 pointer-events-none" style={{
+                        background: 'radial-gradient(ellipse 60% 80% at 0% 0%, rgba(99,102,241,0.08), transparent)',
+                    }} />
 
-                    {/* ── Profile Card ─────────────────────────────────────────── */}
-                    <SectionCard title="Account Info" icon={User}>
-                        <div className="flex items-center gap-5 mb-6">
-                            <div className="w-16 h-16 rounded-full bg-indigo-600/30 border-2 border-indigo-500/30 flex items-center justify-center shrink-0">
-                                <span className="text-2xl font-bold text-indigo-300">
-                                    {(user?.name ?? '?')[0].toUpperCase()}
+                    <div className="relative px-10 py-10 flex items-end gap-8">
+                        {/* Avatar ring */}
+                        <div className="relative flex-shrink-0">
+                            <div
+                                className={`w-24 h-24 rounded-3xl flex items-center justify-center text-4xl font-black text-white bg-gradient-to-br ${roleMeta.grad}`}
+                                style={{ boxShadow: `0 8px 32px -8px ${roleMeta.text}60, inset 0 1px 0 rgba(255,255,255,0.15)` }}
+                            >
+                                {initials}
+                            </div>
+                            {/* Online dot */}
+                            <span className="absolute bottom-1 right-1 flex h-4 w-4">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-50" style={{ background: roleMeta.text }} />
+                                <span className="relative inline-flex rounded-full h-4 w-4 border-2 border-[#060d1a]" style={{ background: roleMeta.text }} />
+                            </span>
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 pb-1">
+                            <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <h1 className="text-3xl font-bold text-white tracking-tight leading-none">{user?.name}</h1>
+                                <span
+                                    className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border"
+                                    style={{ background: roleMeta.bg, borderColor: roleMeta.border, color: roleMeta.text }}
+                                >
+                                    {roleMeta.label}
                                 </span>
                             </div>
-                            <div>
-                                <p className="text-lg font-semibold text-white">{user?.name}</p>
-                                <p className="text-sm text-slate-400">{user?.email}</p>
-                                <div className="flex items-center gap-2 mt-2">
-                                    <RoleBadge role={user?.role} />
-                                    {user?.departmentId && (
-                                        <span className="text-xs text-slate-500">Dept: {user.departmentId}</span>
-                                    )}
+                            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>{user?.email}</p>
+
+                            {/* Meta chips */}
+                            <div className="flex flex-wrap gap-2 mt-3">
+                                {user?.rollNo && (
+                                    <span className="chip">Roll No: {user.rollNo}</span>
+                                )}
+                                {isStaff && user?.employeeId && (
+                                    <span className="chip">EMP: {user.employeeId}</span>
+                                )}
+                                {user?.staffState && (
+                                    <span className="chip">{user.staffState}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="px-10 py-8 space-y-6 max-w-3xl">
+
+                    {/* ── Edit Profile ── */}
+                    <Section title="Edit Profile">
+                        <form onSubmit={handleSave} className="space-y-5">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+                                        Full Name *
+                                    </label>
+                                    <Input
+                                        id="profile-name"
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Your full name"
+                                        icon={User}
+                                    />
                                 </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm border-t border-white/8 pt-4">
-                            {user?.role === 'STUDENT' && user?.rollNo && (
-                                <InfoRow label="Roll No" value={user.rollNo} />
-                            )}
-                            {isStaff && user?.employeeId && (
-                                <InfoRow label="Employee ID" value={user.employeeId} />
-                            )}
-                            {user?.staffState && (
-                                <InfoRow label="Staff State" value={user.staffState} />
-                            )}
-                        </div>
-                    </SectionCard>
-
-                    {/* ── Edit section ─────────────────────────────────────────── */}
-                    <SectionCard title="Edit Profile" icon={Save}>
-                        <form onSubmit={handleSave} className="space-y-4">
-                            {/* Name */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-slate-300 flex items-center gap-1.5">
-                                    <User size={13} className="text-slate-500" /> Name
-                                    <span className="text-indigo-400">*</span>
-                                </label>
-                                <input
-                                    id="profile-name"
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className={inputCls()}
-                                    placeholder="Your full name"
-                                />
-                            </div>
-
-                            {/* Phone */}
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-slate-300 flex items-center gap-1.5">
-                                    <Phone size={13} className="text-slate-500" /> Phone
-                                    <span className="text-xs text-slate-600 ml-1">(optional)</span>
-                                </label>
-                                <input
-                                    id="profile-phone"
-                                    type="tel"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className={inputCls()}
-                                    placeholder="+91 98765 43210"
-                                />
-                            </div>
-
-                            {/* Notification preferences */}
-                            <div className="flex flex-col gap-2.5">
-                                <label className="text-sm font-medium text-slate-300 flex items-center gap-1.5">
-                                    <Bell size={13} className="text-slate-500" /> Notification Preferences
-                                </label>
-                                <div className="space-y-2.5 pl-1">
-                                    {[
-                                        { id: 'pref-realtime', label: 'Real-time notifications', value: prefRealtime, set: setPrefRealtime },
-                                        { id: 'pref-email', label: 'Email notifications', value: prefEmail, set: setPrefEmail },
-                                        { id: 'pref-sms', label: 'SMS notifications', value: prefSms, set: setPrefSms },
-                                    ].map(({ id, label, value, set }) => (
-                                        <label key={id} htmlFor={id} className="flex items-center gap-3 cursor-pointer group">
-                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${value ? 'bg-indigo-600 border-indigo-500' : 'border-white/20 bg-white/5'}`}>
-                                                {value && <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                                            </div>
-                                            <input id={id} type="checkbox" checked={value} onChange={(e) => set(e.target.checked)} className="sr-only" />
-                                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{label}</span>
-                                        </label>
-                                    ))}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+                                        Phone (optional)
+                                    </label>
+                                    <Input
+                                        id="profile-phone"
+                                        type="tel"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        placeholder="+91 98765 43210"
+                                        icon={Phone}
+                                    />
                                 </div>
                             </div>
 
-                            <div className="pt-2 border-t border-white/8">
-                                <button
+                            <div className="flex justify-end pt-2">
+                                <Button
                                     id="profile-save-btn"
                                     type="submit"
+                                    variant="primary"
+                                    size="sm"
                                     disabled={saving}
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.99]"
+                                    isLoading={saving}
+                                    icon={saving ? null : Save}
                                 >
-                                    {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                                     {saving ? 'Saving…' : 'Save Changes'}
-                                </button>
+                                </Button>
                             </div>
                         </form>
-                    </SectionCard>
+                    </Section>
 
-                    {/* ── Password Change ───────────────────────────────────────── */}
-                    <SectionCard title="Change Password" icon={Lock}>
+                    {/* ── Notification Preferences ── */}
+                    <Section title="Notification Preferences">
+                        <div className="space-y-2.5">
+                            <Toggle
+                                id="pref-realtime"
+                                label="Real-time notifications"
+                                description="Instant alerts via the app"
+                                value={prefRealtime}
+                                onChange={setPrefRealtime}
+                                icon={BellRing}
+                            />
+                            <Toggle
+                                id="pref-email"
+                                label="Email notifications"
+                                description="Updates sent to your inbox"
+                                value={prefEmail}
+                                onChange={setPrefEmail}
+                                icon={Mail}
+                            />
+                            <Toggle
+                                id="pref-sms"
+                                label="SMS notifications"
+                                description="Text messages to your phone"
+                                value={prefSms}
+                                onChange={setPrefSms}
+                                icon={MessageSquare}
+                            />
+                        </div>
+                    </Section>
+
+                    {/* ── Change Password ── */}
+                    <Section title="Security">
                         <form onSubmit={handlePasswordChange} className="space-y-4">
-                            <div className="flex flex-col gap-1.5">
-                                <label className="text-sm font-medium text-slate-300">Current Password</label>
-                                <input
-                                    id="pwd-old"
-                                    type="password"
-                                    value={oldPwd}
-                                    onChange={(e) => setOldPwd(e.target.value)}
-                                    className={inputCls()}
-                                    placeholder="••••••••"
-                                />
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>Current Password</label>
+                                <Input id="pwd-old" type="password" value={oldPwd} onChange={(e) => setOldPwd(e.target.value)} placeholder="••••••••" icon={Lock} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-slate-300">New Password</label>
-                                    <input
-                                        id="pwd-new"
-                                        type="password"
-                                        value={newPwd}
-                                        onChange={(e) => setNewPwd(e.target.value)}
-                                        className={inputCls()}
-                                        placeholder="••••••••"
-                                    />
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>New Password</label>
+                                    <Input id="pwd-new" type="password" value={newPwd} onChange={(e) => setNewPwd(e.target.value)} placeholder="••••••••" icon={Lock} />
                                 </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <label className="text-sm font-medium text-slate-300">Confirm New</label>
-                                    <input
-                                        id="pwd-confirm"
-                                        type="password"
-                                        value={confirmPwd}
-                                        onChange={(e) => setConfirmPwd(e.target.value)}
-                                        className={inputCls()}
-                                        placeholder="••••••••"
-                                    />
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>Confirm New</label>
+                                    <Input id="pwd-confirm" type="password" value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} placeholder="••••••••" icon={Lock} />
                                 </div>
                             </div>
-                            <div className="pt-2 border-t border-white/8">
-                                <button
-                                    id="change-password-btn"
-                                    type="submit"
-                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-sm font-medium transition-all"
-                                >
-                                    <Lock size={14} />
+                            <div className="flex justify-start pt-1">
+                                <Button id="change-password-btn" type="submit" variant="outline" size="sm" icon={Lock}>
                                     Change Password
-                                </button>
+                                </Button>
                             </div>
                         </form>
-                    </SectionCard>
+                    </Section>
                 </div>
             </main>
-        </div>
-    )
-}
-
-function InfoRow({ label, value }) {
-    return (
-        <div>
-            <p className="text-xs text-slate-500">{label}</p>
-            <p className="text-sm text-slate-300 font-medium">{value ?? '—'}</p>
         </div>
     )
 }

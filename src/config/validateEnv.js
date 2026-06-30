@@ -9,7 +9,7 @@ const REQUIRED = [
 ]
 
 const OPTIONAL_WITH_WARNINGS = [
-    'OPENAI_API_KEY',
+    'GROQ_API_KEY',
     'SMTP_HOST',
     'SMTP_USER',
     'SMTP_PASS',

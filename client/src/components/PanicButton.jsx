@@ -1,197 +1,222 @@
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
-import { Siren, X, AlertTriangle, Loader2 } from 'lucide-react'
+import { Siren } from 'lucide-react'
 import { triggerPanic } from '../api/panic'
 
 const COOLDOWN_SECONDS = 30
+const HOLD_DURATION_MS = 2000
+const SIZE = 56
+const R = SIZE / 2 - 4
+const CIRCUMFERENCE = 2 * Math.PI * R
 
-// ── Confirmation Modal ────────────────────────────────────────────────────────
-function ConfirmModal({ onConfirm, onCancel, loading }) {
-    // Close on Escape key
-    useEffect(() => {
-        const handler = (e) => { if (e.key === 'Escape') onCancel() }
-        window.addEventListener('keydown', handler)
-        return () => window.removeEventListener('keydown', handler)
-    }, [onCancel])
-
-    return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                onClick={onCancel}
-            />
-
-            {/* Dialog */}
-            <div className="relative w-full max-w-sm bg-slate-900 border border-red-500/30 rounded-2xl shadow-2xl shadow-red-900/30 overflow-hidden animate-[fadeInScale_0.15s_ease-out]">
-                {/* Red accent bar */}
-                <div className="h-1 bg-gradient-to-r from-red-600 to-orange-500" />
-
-                <div className="px-6 py-5">
-                    {/* Icon + title */}
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-10 h-10 rounded-full bg-red-600/20 border border-red-500/30 flex items-center justify-center shrink-0">
-                            <Siren size={18} className="text-red-400" />
-                        </div>
-                        <h2 className="text-base font-bold text-white">Trigger Emergency Alert?</h2>
-                    </div>
-
-                    <p className="text-sm text-slate-400 leading-relaxed mb-6">
-                        This will immediately notify all security personnel and create an emergency incident.{' '}
-                        <span className="text-red-400 font-medium">Only use in genuine emergencies.</span>
-                    </p>
-
-                    {/* Actions */}
-                    <div className="flex gap-3">
-                        <button
-                            id="panic-modal-cancel"
-                            type="button"
-                            onClick={onCancel}
-                            disabled={loading}
-                            className="flex-1 py-2.5 px-4 rounded-xl border border-white/10 hover:bg-white/5 text-slate-300 hover:text-white text-sm font-medium transition-all disabled:opacity-50"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            id="panic-modal-confirm"
-                            type="button"
-                            onClick={onConfirm}
-                            disabled={loading}
-                            className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold transition-all hover:shadow-lg hover:shadow-red-500/30 flex items-center justify-center gap-2"
-                        >
-                            {loading ? (
-                                <><Loader2 size={14} className="animate-spin" /> Sending…</>
-                            ) : (
-                                <><Siren size={14} /> Send Emergency Alert</>
-                            )}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-// ── Panic Button ──────────────────────────────────────────────────────────────
 export default function PanicButton({ role }) {
-    const [showModal, setShowModal] = useState(false)
-    const [loading, setLoading] = useState(false)
-    const [cooldown, setCooldown] = useState(0)   // seconds remaining
-    const timerRef = useRef(null)
+    const [loading,      setLoading]      = useState(false)
+    const [cooldown,     setCooldown]     = useState(0)
+    const [isHolding,    setIsHolding]    = useState(false)
+    const [holdProgress, setHoldProgress] = useState(0)
 
-    // Only STUDENT and FACULTY can trigger panic
+    const timerRef        = useRef(null)
+    const holdIntervalRef = useRef(null)
+    const holdStartRef    = useRef(0)
+
     if (role !== 'STUDENT' && role !== 'FACULTY') return null
 
     const isDisabled = cooldown > 0 || loading
 
-    // ── Start cooldown ─────────────────────────────────────────────────────────
     const startCooldown = () => {
         setCooldown(COOLDOWN_SECONDS)
         timerRef.current = setInterval(() => {
-            setCooldown((prev) => {
-                if (prev <= 1) {
-                    clearInterval(timerRef.current)
-                    return 0
-                }
+            setCooldown(prev => {
+                if (prev <= 1) { clearInterval(timerRef.current); return 0 }
                 return prev - 1
             })
         }, 1000)
     }
 
-    // Cleanup on unmount
     useEffect(() => () => clearInterval(timerRef.current), [])
 
-    // ── Get geolocation ────────────────────────────────────────────────────────
     const getCoords = () =>
-        new Promise((resolve) => {
-            if (!navigator.geolocation) {
-                resolve({ lat: 0, lng: 0 })
-                return
-            }
+        new Promise(resolve => {
+            if (!navigator.geolocation) { resolve({ lat: 0, lng: 0 }); return }
             navigator.geolocation.getCurrentPosition(
-                (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                () => resolve({ lat: 0, lng: 0 }),
+                pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+                ()  => resolve({ lat: 0, lng: 0 }),
                 { timeout: 5000 }
             )
         })
 
-    // ── Handle confirm ─────────────────────────────────────────────────────────
-    const handleConfirm = async () => {
-        setLoading(true)
+    const handleTrigger = async () => {
+        if (loading || cooldown > 0) return
+        setLoading(true); setIsHolding(false); setHoldProgress(0)
         try {
             const { lat, lng } = await getCoords()
-            await triggerPanic(lat, lng, 'Panic button triggered')
-            setShowModal(false)
-            toast.success('Emergency alert sent! Help is on the way.', {
-                duration: 6000,
-                icon: '🚨',
-            })
+            await triggerPanic(lat, lng, 'Panic button triggered via hold')
+            toast.success('Emergency alert sent! Help is on the way.', { duration: 6000, icon: '🚨' })
             startCooldown()
         } catch (err) {
-            toast.error(
-                err?.response?.data?.error?.message ?? 'Failed to send emergency alert. Try again.',
-                { duration: 5000 }
-            )
+            toast.error(err?.response?.data?.error?.message ?? 'Failed to send alert. Try again.', { duration: 5000 })
         } finally {
             setLoading(false)
         }
     }
 
+    const startHold = () => {
+        if (isDisabled) return
+        setIsHolding(true); setHoldProgress(0)
+        holdStartRef.current = Date.now()
+        holdIntervalRef.current = setInterval(() => {
+            const elapsed  = Date.now() - holdStartRef.current
+            const progress = Math.min(100, (elapsed / HOLD_DURATION_MS) * 100)
+            setHoldProgress(progress)
+            if (progress >= 100) { clearInterval(holdIntervalRef.current); handleTrigger() }
+        }, 30)
+    }
+
+    const cancelHold = () => {
+        if (holdProgress >= 100 || loading) return
+        clearInterval(holdIntervalRef.current)
+        setIsHolding(false); setHoldProgress(0)
+    }
+
+    useEffect(() => {
+        const up = () => cancelHold()
+        window.addEventListener('mouseup', up)
+        window.addEventListener('touchend', up)
+        return () => { window.removeEventListener('mouseup', up); window.removeEventListener('touchend', up); clearInterval(holdIntervalRef.current) }
+    }, [holdProgress, loading])
+
+    // SVG ring progress
+    const strokeDash = CIRCUMFERENCE - (holdProgress / 100) * CIRCUMFERENCE
+
+    // Cooldown ring
+    const cooldownDash = CIRCUMFERENCE - ((COOLDOWN_SECONDS - cooldown) / COOLDOWN_SECONDS) * CIRCUMFERENCE
+
     return (
-        <>
-            {/* ── Floating button ─────────────────────────────────────────── */}
-            <div className="fixed bottom-24 right-8 z-50 group">
-                {/* Pulsing ring — only when idle */}
-                {!isDisabled && (
-                    <span className="absolute inset-0 rounded-full bg-red-500 opacity-40 animate-ping" />
-                )}
-
-                <button
-                    id="panic-button"
-                    type="button"
-                    onClick={() => !isDisabled && setShowModal(true)}
-                    disabled={isDisabled}
-                    aria-label="Trigger emergency panic alert"
-                    className={`
-                        relative w-14 h-14 rounded-full flex flex-col items-center justify-center
-                        shadow-lg shadow-red-900/40 transition-all duration-200
-                        focus:outline-none focus:ring-4 focus:ring-red-500/40
-                        ${isDisabled
-                            ? 'bg-slate-700 cursor-not-allowed opacity-70 shadow-none'
-                            : 'bg-red-600 hover:bg-red-500 hover:scale-110 hover:shadow-xl hover:shadow-red-500/40 active:scale-95 cursor-pointer'
-                        }
-                    `}
-                >
-                    {cooldown > 0 ? (
-                        <span className="text-white text-[10px] font-bold tabular-nums leading-none text-center">
-                            <span className="block text-[8px] opacity-70">Cool</span>
-                            {cooldown}s
-                        </span>
-                    ) : (
-                        <Siren size={22} className="text-white" />
-                    )}
-                </button>
-
-                {/* Tooltip label on hover */}
-                {!isDisabled && (
-                    <div className="absolute right-16 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none">
-                        <div className="bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
-                            PANIC
-                            {/* Arrow */}
-                            <span className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-red-700" />
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* ── Confirmation modal ───────────────────────────────────────── */}
-            {showModal && (
-                <ConfirmModal
-                    onConfirm={handleConfirm}
-                    onCancel={() => !loading && setShowModal(false)}
-                    loading={loading}
-                />
+        <div className="fixed bottom-24 right-8 z-50 group" style={{ width: SIZE + 8, height: SIZE + 8 }}>
+            {/* Idle pulse rings */}
+            {!isDisabled && !isHolding && (
+                <>
+                    <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(239,68,68,0.25)', animationDuration: '2s' }} />
+                    <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(239,68,68,0.15)', animationDuration: '2s', animationDelay: '0.5s' }} />
+                </>
             )}
-        </>
+
+            {/* SVG ring overlay */}
+            <svg
+                width={SIZE + 8}
+                height={SIZE + 8}
+                viewBox={`0 0 ${SIZE + 8} ${SIZE + 8}`}
+                className="absolute inset-0 pointer-events-none -rotate-90"
+            >
+                {/* Track */}
+                <circle
+                    cx={(SIZE + 8) / 2}
+                    cy={(SIZE + 8) / 2}
+                    r={R}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.07)"
+                    strokeWidth="3"
+                />
+                {/* Hold progress */}
+                {isHolding && (
+                    <circle
+                        cx={(SIZE + 8) / 2}
+                        cy={(SIZE + 8) / 2}
+                        r={R}
+                        fill="none"
+                        stroke="#f87171"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={CIRCUMFERENCE}
+                        strokeDashoffset={strokeDash}
+                        style={{ transition: 'stroke-dashoffset 30ms linear', filter: 'drop-shadow(0 0 6px rgba(248,113,113,0.8))' }}
+                    />
+                )}
+                {/* Cooldown progress */}
+                {cooldown > 0 && (
+                    <circle
+                        cx={(SIZE + 8) / 2}
+                        cy={(SIZE + 8) / 2}
+                        r={R}
+                        fill="none"
+                        stroke="#64748b"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={CIRCUMFERENCE}
+                        strokeDashoffset={cooldownDash}
+                        style={{ transition: 'stroke-dashoffset 1000ms linear' }}
+                    />
+                )}
+            </svg>
+
+            {/* Button */}
+            <button
+                id="panic-button"
+                type="button"
+                onMouseDown={startHold}
+                onTouchStart={startHold}
+                disabled={isDisabled}
+                aria-label="Hold for emergency panic alert"
+                className="absolute inset-1 rounded-full flex flex-col items-center justify-center focus:outline-none transition-all duration-200 overflow-hidden"
+                style={{
+                    background: isDisabled
+                        ? 'radial-gradient(circle, #374151, #1f2937)'
+                        : isHolding
+                            ? 'radial-gradient(circle, #ef4444, #991b1b)'
+                            : 'radial-gradient(circle, #dc2626, #7f1d1d)',
+                    boxShadow: isDisabled
+                        ? 'none'
+                        : isHolding
+                            ? '0 0 0 0 rgba(239,68,68,0.5), 0 8px 32px -8px rgba(239,68,68,0.7)'
+                            : '0 8px 24px -4px rgba(220,38,38,0.6), inset 0 1px 0 rgba(255,255,255,0.15)',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    transform: isHolding ? 'scale(0.95)' : 'scale(1)',
+                }}
+            >
+                {/* Inner fill on hold */}
+                {isHolding && (
+                    <div
+                        className="absolute inset-0 rounded-full"
+                        style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            clipPath: `inset(${100 - holdProgress}% 0 0 0)`,
+                            transition: 'clip-path 30ms linear',
+                        }}
+                    />
+                )}
+
+                {cooldown > 0 ? (
+                    <div className="relative z-10 text-center">
+                        <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400 leading-none mb-0.5">Wait</p>
+                        <p className="text-sm font-black text-white tabular-nums leading-none">{cooldown}s</p>
+                    </div>
+                ) : (
+                    <Siren
+                        size={22}
+                        className="relative z-10 text-white"
+                        style={{
+                            filter: isHolding ? 'drop-shadow(0 0 8px rgba(255,200,200,0.9))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
+                            animation: isHolding ? 'livePulse 0.4s ease-in-out infinite' : 'none',
+                        }}
+                    />
+                )}
+            </button>
+
+            {/* Tooltip */}
+            {!isDisabled && !isHolding && (
+                <div className="absolute right-[calc(100%+10px)] top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none">
+                    <div
+                        className="text-white text-[10px] font-bold px-3 py-2 rounded-xl whitespace-nowrap"
+                        style={{
+                            background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+                            boxShadow: '0 4px 16px -4px rgba(239,68,68,0.5)',
+                        }}
+                    >
+                        HOLD 2s · EMERGENCY
+                        <span className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-red-600" />
+                    </div>
+                </div>
+            )}
+        </div>
     )
 }

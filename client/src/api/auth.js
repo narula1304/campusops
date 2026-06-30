@@ -9,3 +9,9 @@ export async function getMe() {
   const response = await client.get('/auth/me');
   return response.data.data;
 }
+
+export async function register(data) {
+  const response = await client.post('/auth/register', data);
+  return response.data;
+}
+

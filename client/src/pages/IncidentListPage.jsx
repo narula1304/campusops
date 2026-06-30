@@ -10,135 +10,106 @@ import {
     FileText,
     ChevronLeft,
     ChevronRight,
+    SlidersHorizontal,
 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import { useAuth } from '../context/AuthContext'
 import { listIncidents } from '../api/incidents'
+import { Card, CardContent } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 10
 
-const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED', 'REOPENED']
+const STATUS_OPTIONS   = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'ESCALATED', 'REOPENED']
 const PRIORITY_OPTIONS = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
 const CATEGORY_OPTIONS = ['MAINTENANCE', 'SECURITY', 'INFRASTRUCTURE', 'CLEANLINESS', 'EMERGENCY', 'OTHER']
 
-// ── Badge styles ───────────────────────────────────────────────────────────────
-const PRIORITY_STYLES = {
-    CRITICAL: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    HIGH: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
-    MEDIUM: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-    LOW: 'bg-green-500/15 text-green-400 border border-green-500/30',
+// ── Priority / Status colors ────────────────────────────────────────────────────
+const PRIORITY_STYLE = {
+    CRITICAL: { bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.2)',   text: '#f87171' },
+    HIGH:     { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.2)',  text: '#fbbf24' },
+    MEDIUM:   { bg: 'rgba(234,179,8,0.1)',   border: 'rgba(234,179,8,0.2)',   text: '#facc15' },
+    LOW:      { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.2)',  text: '#34d399' },
 }
 
-const STATUS_STYLES = {
-    OPEN: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    IN_PROGRESS: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
-    RESOLVED: 'bg-green-500/15 text-green-400 border border-green-500/30',
-    CLOSED: 'bg-slate-600/40 text-slate-400 border border-slate-600/40',
-    ESCALATED: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    REOPENED: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
+const STATUS_STYLE = {
+    OPEN:        { bg: 'rgba(14,165,233,0.1)',  border: 'rgba(14,165,233,0.2)',  text: '#38bdf8' },
+    IN_PROGRESS: { bg: 'rgba(99,102,241,0.1)',  border: 'rgba(99,102,241,0.2)',  text: '#818cf8' },
+    RESOLVED:    { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.2)',  text: '#34d399' },
+    CLOSED:      { bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.2)', text: '#94a3b8' },
+    ESCALATED:   { bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.2)',   text: '#f87171' },
+    REOPENED:    { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.2)',  text: '#fbbf24' },
 }
 
 function PriorityBadge({ priority }) {
+    const s = PRIORITY_STYLE[priority] || { bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.2)', text: '#94a3b8' }
     return (
         <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                PRIORITY_STYLES[priority] ?? 'bg-slate-700 text-slate-300'
-            }`}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border"
+            style={{ background: s.bg, borderColor: s.border, color: s.text }}
         >
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
             {priority}
         </span>
     )
 }
 
 function StatusBadge({ status }) {
-    const label = status?.replace('_', ' ')
+    const s = STATUS_STYLE[status] || { bg: 'rgba(100,116,139,0.1)', border: 'rgba(100,116,139,0.2)', text: '#94a3b8' }
     return (
         <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                STATUS_STYLES[status] ?? 'bg-slate-700 text-slate-300'
-            }`}
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider border"
+            style={{ background: s.bg, borderColor: s.border, color: s.text }}
         >
-            {label}
+            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
+            {status?.replace('_', ' ')}
         </span>
     )
 }
 
-// ── Skeleton ───────────────────────────────────────────────────────────────────
-function Skeleton({ className = '' }) {
-    return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />
-}
-
+// ── Skeleton rows ──────────────────────────────────────────────────────────────
 function SkeletonRows() {
     return (
-        <tbody className="divide-y divide-white/5">
-            {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                <tr key={i} className="flex items-center gap-4 px-6 py-4 hidden [&]:flex">
-                    <td className="px-6 py-4 w-28">
-                        <Skeleton className="h-4 w-20" />
-                    </td>
-                    <td className="px-4 py-4 flex-1">
-                        <Skeleton className="h-4 w-full max-w-xs" />
-                    </td>
-                    <td className="px-4 py-4 hidden md:table-cell w-28">
-                        <Skeleton className="h-4 w-20" />
-                    </td>
-                    <td className="px-4 py-4 hidden sm:table-cell w-24">
-                        <Skeleton className="h-5 w-16" />
-                    </td>
-                    <td className="px-4 py-4 w-28">
-                        <Skeleton className="h-5 w-20" />
-                    </td>
-                    <td className="px-4 py-4 hidden lg:table-cell w-28">
-                        <Skeleton className="h-4 w-24" />
-                    </td>
+        <tbody>
+            {Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    {[28, 180, 80, 70, 80, 72].map((w, j) => (
+                        <td key={j} className="px-6 py-4">
+                            <div className="skeleton rounded h-4" style={{ width: w }} />
+                        </td>
+                    ))}
                 </tr>
             ))}
         </tbody>
     )
 }
 
-// ── Select control ─────────────────────────────────────────────────────────────
+// ── Filter select ──────────────────────────────────────────────────────────────
 function FilterSelect({ id, label, value, onChange, options }) {
     return (
         <div className="flex flex-col gap-1.5">
-            <label htmlFor={id} className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+            <label htmlFor={id} className="text-[10px] font-bold uppercase tracking-[0.12em]"
+                style={{ color: 'var(--color-text-muted)' }}>
                 {label}
             </label>
-            <select
-                id={id}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all appearance-none cursor-pointer min-w-[140px]"
-            >
-                <option value="">All</option>
-                {options.map((opt) => (
-                    <option key={opt} value={opt}>
-                        {opt.replace('_', ' ')}
-                    </option>
-                ))}
-            </select>
-        </div>
-    )
-}
-
-// ── Search bar ─────────────────────────────────────────────────────────────────
-function SearchInput({ value, onChange }) {
-    return (
-        <div className="flex flex-col gap-1.5">
-            <label htmlFor="search-incidents" className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-                Search
-            </label>
             <div className="relative">
-                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                <input
-                    id="search-incidents"
-                    type="text"
+                <select
+                    id={id}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
-                    placeholder="Search by title…"
-                    className="bg-slate-800 border border-white/10 text-white text-sm rounded-xl pl-9 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all w-full sm:w-56 placeholder:text-slate-600"
-                />
+                    className="input px-3.5 py-2 pr-9 text-sm min-w-[130px] appearance-none cursor-pointer"
+                    style={{ background: 'var(--surface-3)' }}
+                >
+                    <option value="">All</option>
+                    {options.map(opt => (
+                        <option key={opt} value={opt}>{opt.replace('_', ' ')}</option>
+                    ))}
+                </select>
+                <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ color: 'var(--color-text-muted)' }} />
             </div>
         </div>
     )
@@ -149,20 +120,18 @@ export default function IncidentListPage() {
     const { user, logout, on } = useAuth()
     const navigate = useNavigate()
 
-    const role = user?.role
-    const userId = user?.id
+    const role            = user?.role
+    const userId          = user?.id
     const showReportButton = ['STUDENT', 'FACULTY', 'ADMIN'].includes(role)
 
-    // ── Filter state ───────────────────────────────────────────────────────────
-    const [filtersOpen, setFiltersOpen] = useState(false)
-    const [statusFilter, setStatusFilter] = useState('')
-    const [priorityFilter, setPriorityFilter] = useState('')
-    const [categoryFilter, setCategoryFilter] = useState('')
-    const [searchInput, setSearchInput] = useState('')
-    const [searchDebounced, setSearchDebounced] = useState('')
+    const [filtersOpen,      setFiltersOpen]      = useState(false)
+    const [statusFilter,     setStatusFilter]     = useState('')
+    const [priorityFilter,   setPriorityFilter]   = useState('')
+    const [categoryFilter,   setCategoryFilter]   = useState('')
+    const [searchInput,      setSearchInput]      = useState('')
+    const [searchDebounced,  setSearchDebounced]  = useState('')
     const debounceRef = useRef(null)
 
-    // Debounce search
     useEffect(() => {
         clearTimeout(debounceRef.current)
         debounceRef.current = setTimeout(() => {
@@ -172,38 +141,21 @@ export default function IncidentListPage() {
         return () => clearTimeout(debounceRef.current)
     }, [searchInput])
 
-    // ── Pagination ─────────────────────────────────────────────────────────────
-    const [page, setPage] = useState(1)
-
-    // ── Data ───────────────────────────────────────────────────────────────────
-    const [incidents, setIncidents] = useState([])
-    const [total, setTotal] = useState(0)
-    const [loading, setLoading] = useState(true)
+    const [page,       setPage]       = useState(1)
+    const [incidents,  setIncidents]  = useState([])
+    const [total,      setTotal]      = useState(0)
+    const [loading,    setLoading]    = useState(true)
     const [refreshKey, setRefreshKey] = useState(0)
 
-    // Build query params with role-based pre-filters
     const buildParams = useCallback(() => {
-        const params = {
-            limit: PAGE_SIZE,
-            page,
-            sort: 'createdAt:desc',
-        }
-
-        // Role-based base filters
-        if (role === 'STUDENT' || role === 'FACULTY') {
-            params.createdById = userId
-        } else if (role === 'MAINTENANCE' || role === 'SECURITY') {
-            params.assignedToId = userId
-        }
-        // ADMIN — no pre-filter
-
-        // User-applied filters
-        if (statusFilter) params.status = statusFilter
-        if (priorityFilter) params.priority = priorityFilter
-        if (categoryFilter) params.category = categoryFilter
-        if (searchDebounced.trim()) params.search = searchDebounced.trim()
-
-        return params
+        const p = { limit: PAGE_SIZE, page, sort: 'createdAt:desc' }
+        if (role === 'STUDENT' || role === 'FACULTY') p.createdById  = userId
+        else if (role === 'MAINTENANCE' || role === 'SECURITY')     p.assignedToId = userId
+        if (statusFilter)       p.status   = statusFilter
+        if (priorityFilter)     p.priority  = priorityFilter
+        if (categoryFilter)     p.category  = categoryFilter
+        if (searchDebounced.trim()) p.search = searchDebounced.trim()
+        return p
     }, [role, userId, page, statusFilter, priorityFilter, categoryFilter, searchDebounced])
 
     useEffect(() => {
@@ -217,279 +169,262 @@ export default function IncidentListPage() {
                     setTotal(res?.meta?.total ?? 0)
                 }
             } catch {
-                if (!cancelled) {
-                    setIncidents([])
-                    setTotal(0)
-                }
+                if (!cancelled) { setIncidents([]); setTotal(0) }
             } finally {
                 if (!cancelled) setLoading(false)
             }
         })()
-        return () => {
-            cancelled = true
-        }
+        return () => { cancelled = true }
     }, [buildParams, refreshKey])
 
-    // Reset to page 1 when filters change
-    useEffect(() => {
-        setPage(1)
-    }, [statusFilter, priorityFilter, categoryFilter])
+    useEffect(() => { setPage(1) }, [statusFilter, priorityFilter, categoryFilter])
 
-    // Real-time refresh
     useEffect(() => {
-        const bump = () => setRefreshKey((k) => k + 1)
-        const unsub1 = on('incident_created', bump)
-        const unsub2 = on('incident_updated', bump)
-        return () => {
-            unsub1()
-            unsub2()
-        }
+        const bump = () => setRefreshKey(k => k + 1)
+        const u1 = on('incident_created', bump)
+        const u2 = on('incident_updated', bump)
+        return () => { u1(); u2() }
     }, [on])
 
-    const handleLogout = () => {
-        logout()
-        navigate('/login')
-    }
+    const handleLogout = () => { logout(); navigate('/login') }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-    const hasActiveFilters =
-        statusFilter !== '' || priorityFilter !== '' || categoryFilter !== '' || searchDebounced !== ''
-
+    const hasActiveFilters = statusFilter || priorityFilter || categoryFilter || searchDebounced
     const clearFilters = () => {
-        setStatusFilter('')
-        setPriorityFilter('')
-        setCategoryFilter('')
-        setSearchInput('')
-        setSearchDebounced('')
-        setPage(1)
+        setStatusFilter(''); setPriorityFilter(''); setCategoryFilter('')
+        setSearchInput(''); setSearchDebounced(''); setPage(1)
     }
 
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-    const fromItem = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
-    const toItem = Math.min(page * PAGE_SIZE, total)
+    const fromItem   = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+    const toItem     = Math.min(page * PAGE_SIZE, total)
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '—'
-        return new Date(dateStr).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-        })
-    }
+    const formatDate = (d) => !d ? '—' : new Date(d).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+    })
+
+    const activeFilterCount = [statusFilter, priorityFilter, categoryFilter, searchDebounced].filter(Boolean).length
 
     return (
-        <div className="min-h-screen bg-slate-900 flex">
-            {/* Sidebar */}
+        <div className="min-h-screen flex" style={{ background: 'transparent' }}>
             <Sidebar user={user} onLogout={handleLogout} />
 
-            {/* Main content */}
-            <main className="ml-64 flex-1 min-h-screen">
-                {/* ── Top header ──────────────────────────────────────────────── */}
-                <header className="sticky top-0 z-30 bg-slate-900/80 backdrop-blur border-b border-white/8 px-8 py-4 flex items-center justify-between gap-4">
+            <main className="ml-[17rem] flex-1 min-h-screen flex flex-col">
+
+                {/* ── Header ── */}
+                <header
+                    className="sticky top-0 z-30 px-8 py-4 flex items-center justify-between gap-4"
+                    style={{
+                        background: 'rgba(3,7,18,0.85)',
+                        backdropFilter: 'blur(20px)',
+                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    }}
+                >
                     <div>
-                        <h1 className="text-xl font-semibold text-white">Incidents</h1>
-                        <p className="text-sm text-slate-500 mt-0.5">
+                        <h1 className="text-xl font-bold text-white tracking-tight">Incidents</h1>
+                        <p className="text-xs mt-0.5 font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                             {role === 'ADMIN'
                                 ? 'All incidents across campus'
-                                : role === 'MAINTENANCE' || role === 'SECURITY'
-                                ? 'Incidents assigned to you'
-                                : 'Your submitted incidents'}
+                                : (role === 'MAINTENANCE' || role === 'SECURITY')
+                                    ? 'Incidents assigned to you'
+                                    : 'Your submitted incidents'}
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
-                        {/* Filter toggle */}
+                    <div className="flex items-center gap-2.5 shrink-0">
                         <button
                             id="toggle-filters-btn"
-                            onClick={() => setFiltersOpen((v) => !v)}
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all duration-150 ${
-                                filtersOpen || hasActiveFilters
-                                    ? 'bg-indigo-600/20 border-indigo-500/40 text-indigo-400'
-                                    : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:bg-white/8'
-                            }`}
+                            onClick={() => setFiltersOpen(v => !v)}
+                            className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all duration-200"
+                            style={{
+                                background: (filtersOpen || hasActiveFilters) ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.04)',
+                                border: (filtersOpen || hasActiveFilters) ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(255,255,255,0.07)',
+                                color: (filtersOpen || hasActiveFilters) ? '#818cf8' : 'var(--color-text-secondary)',
+                            }}
                         >
-                            <Filter size={15} />
+                            <SlidersHorizontal size={14} />
                             Filters
-                            {hasActiveFilters && (
-                                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
-                                    {[statusFilter, priorityFilter, categoryFilter, searchDebounced].filter(Boolean).length}
+                            {activeFilterCount > 0 && (
+                                <span
+                                    className="flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold text-white"
+                                    style={{ background: 'var(--color-primary-500)' }}
+                                >
+                                    {activeFilterCount}
                                 </span>
                             )}
-                            {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            {filtersOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                         </button>
 
                         {showReportButton && (
-                            <Link
-                                to="/incidents/new"
+                            <Button
                                 id="report-incident-btn"
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-all duration-150 hover:shadow-lg hover:shadow-indigo-500/25"
+                                variant="primary"
+                                size="sm"
+                                onClick={() => navigate('/incidents/new')}
+                                icon={Plus}
                             >
-                                <Plus size={15} />
                                 Report Incident
-                            </Link>
+                            </Button>
                         )}
                     </div>
                 </header>
 
-                {/* ── Collapsible filter bar ──────────────────────────────────── */}
+                {/* ── Filter bar ── */}
                 <div
                     id="filter-bar"
-                    className={`overflow-hidden transition-all duration-300 ease-in-out border-b border-white/8 ${
-                        filtersOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
-                    }`}
+                    className="overflow-hidden transition-all duration-300"
+                    style={{
+                        maxHeight: filtersOpen ? '200px' : '0px',
+                        opacity: filtersOpen ? 1 : 0,
+                    }}
                 >
-                    <div className="px-8 py-4 flex flex-wrap items-end gap-4 bg-slate-900/50">
-                        <FilterSelect
-                            id="filter-status"
-                            label="Status"
-                            value={statusFilter}
-                            onChange={setStatusFilter}
-                            options={STATUS_OPTIONS}
-                        />
-                        <FilterSelect
-                            id="filter-priority"
-                            label="Priority"
-                            value={priorityFilter}
-                            onChange={setPriorityFilter}
-                            options={PRIORITY_OPTIONS}
-                        />
-                        <FilterSelect
-                            id="filter-category"
-                            label="Category"
-                            value={categoryFilter}
-                            onChange={setCategoryFilter}
-                            options={CATEGORY_OPTIONS}
-                        />
-                        <SearchInput value={searchInput} onChange={setSearchInput} />
+                    <div
+                        className="px-8 py-5 flex flex-wrap items-end gap-4"
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(255,255,255,0.01))',
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                        }}
+                    >
+                        <FilterSelect id="filter-status"   label="Status"   value={statusFilter}   onChange={setStatusFilter}   options={STATUS_OPTIONS}   />
+                        <FilterSelect id="filter-priority" label="Priority" value={priorityFilter} onChange={setPriorityFilter} options={PRIORITY_OPTIONS} />
+                        <FilterSelect id="filter-category" label="Category" value={categoryFilter} onChange={setCategoryFilter} options={CATEGORY_OPTIONS} />
+
+                        <div className="flex flex-col gap-1.5 flex-1 min-w-[180px] max-w-xs">
+                            <label className="text-[10px] font-bold uppercase tracking-[0.12em]"
+                                style={{ color: 'var(--color-text-muted)' }}>Search</label>
+                            <Input
+                                id="search-incidents"
+                                icon={Search}
+                                value={searchInput}
+                                onChange={(e) => setSearchInput(e.target.value)}
+                                placeholder="Search by title…"
+                                size="sm"
+                            />
+                        </div>
 
                         {hasActiveFilters && (
-                            <button
+                            <Button
                                 id="clear-filters-btn"
+                                variant="ghost"
+                                size="sm"
                                 onClick={clearFilters}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-white border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all duration-150 self-end"
+                                icon={X}
+                                className="text-danger-400 hover:text-danger-300 mb-0.5"
                             >
-                                <X size={14} />
                                 Clear
-                            </button>
+                            </Button>
                         )}
                     </div>
                 </div>
 
-                {/* ── Content ─────────────────────────────────────────────────── */}
-                <div className="px-8 py-8">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-                        {/* Table */}
+                {/* ── Table ── */}
+                <div className="p-8 flex-1">
+                    <div
+                        className="overflow-hidden rounded-2xl"
+                        style={{
+                            background: 'var(--surface-2)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                        }}
+                    >
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full text-sm text-left">
                                 <thead>
-                                    <tr className="border-b border-white/8">
-                                        <th className="text-left text-xs font-semibold text-slate-500 px-6 py-3 uppercase tracking-wide w-28">
-                                            Incident #
-                                        </th>
-                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide">
-                                            Title
-                                        </th>
-                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide hidden md:table-cell w-32">
-                                            Category
-                                        </th>
-                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide hidden sm:table-cell w-28">
-                                            Priority
-                                        </th>
-                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide w-32">
-                                            Status
-                                        </th>
-                                        <th className="text-left text-xs font-semibold text-slate-500 px-4 py-3 uppercase tracking-wide hidden lg:table-cell w-28">
-                                            Created
-                                        </th>
+                                    <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        {['#', 'Title', 'Category', 'Priority', 'Status', 'Created'].map((h, i) => (
+                                            <th
+                                                key={h}
+                                                className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.1em]"
+                                                style={{ color: 'var(--color-text-muted)', display: i === 2 ? undefined : undefined }}
+                                            >
+                                                {h}
+                                            </th>
+                                        ))}
                                     </tr>
                                 </thead>
 
                                 {loading ? (
-                                    /* ── Skeleton rows ── */
-                                    <tbody className="divide-y divide-white/5">
-                                        {Array.from({ length: PAGE_SIZE }).map((_, i) => (
-                                            <tr key={i}>
-                                                <td className="px-6 py-4">
-                                                    <Skeleton className="h-4 w-20" />
-                                                </td>
-                                                <td className="px-4 py-4">
-                                                    <Skeleton className="h-4 w-full max-w-xs" />
-                                                </td>
-                                                <td className="px-4 py-4 hidden md:table-cell">
-                                                    <Skeleton className="h-4 w-20" />
-                                                </td>
-                                                <td className="px-4 py-4 hidden sm:table-cell">
-                                                    <Skeleton className="h-5 w-16" />
-                                                </td>
-                                                <td className="px-4 py-4">
-                                                    <Skeleton className="h-5 w-20" />
-                                                </td>
-                                                <td className="px-4 py-4 hidden lg:table-cell">
-                                                    <Skeleton className="h-4 w-24" />
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
+                                    <SkeletonRows />
                                 ) : incidents.length === 0 ? (
-                                    /* ── Empty state ── */
                                     <tbody>
                                         <tr>
                                             <td colSpan={6}>
                                                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                                                    <div className="w-14 h-14 rounded-full bg-slate-800 flex items-center justify-center mb-4">
-                                                        <FileText size={24} className="text-slate-600" />
+                                                    <div
+                                                        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                                                        style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                                    >
+                                                        <FileText size={26} style={{ color: 'var(--color-text-muted)' }} />
                                                     </div>
-                                                    <p className="text-slate-400 font-medium">No incidents found</p>
-                                                    <p className="text-slate-600 text-sm mt-1">
-                                                        {hasActiveFilters
-                                                            ? 'Try adjusting your filters.'
-                                                            : 'No incidents have been created yet.'}
+                                                    <p className="text-base font-semibold text-white">No incidents found</p>
+                                                    <p className="text-sm mt-1.5 max-w-xs" style={{ color: 'var(--color-text-muted)' }}>
+                                                        {hasActiveFilters ? 'Try adjusting your filters.' : 'No incidents have been reported yet.'}
                                                     </p>
                                                     {hasActiveFilters && (
-                                                        <button
+                                                        <Button
                                                             id="empty-clear-filters-btn"
+                                                            variant="outline"
+                                                            size="sm"
                                                             onClick={clearFilters}
-                                                            className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-slate-300 hover:text-white text-sm font-medium transition-all duration-150"
+                                                            className="mt-5"
+                                                            icon={X}
                                                         >
-                                                            <X size={14} />
                                                             Clear filters
-                                                        </button>
+                                                        </Button>
                                                     )}
                                                 </div>
                                             </td>
                                         </tr>
                                     </tbody>
                                 ) : (
-                                    /* ── Data rows ── */
-                                    <tbody className="divide-y divide-white/5">
+                                    <tbody>
                                         {incidents.map((incident) => (
                                             <tr
                                                 key={incident.id}
                                                 onClick={() => navigate(`/incidents/${incident.id}`)}
-                                                className="hover:bg-white/5 cursor-pointer transition-colors group"
+                                                className="cursor-pointer group transition-all duration-150 relative"
+                                                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.background = 'rgba(99,102,241,0.05)'
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.background = ''
+                                                }}
                                             >
-                                                <td className="px-6 py-4 text-indigo-400 font-mono text-xs whitespace-nowrap">
-                                                    #{incident.incidentNumber ?? '—'}
+                                                {/* Left accent on hover */}
+                                                <td className="px-6 py-4 relative">
+                                                    <div
+                                                        className="absolute left-0 top-0 bottom-0 w-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 rounded-r"
+                                                        style={{ background: 'var(--color-primary-500)' }}
+                                                    />
+                                                    <span
+                                                        className="font-mono text-[11px] font-bold group-hover:text-primary-400 transition-colors"
+                                                        style={{ color: 'var(--color-text-muted)' }}
+                                                    >
+                                                        #{incident.incidentNumber ?? '—'}
+                                                    </span>
                                                 </td>
-                                                <td className="px-4 py-4 max-w-[280px]">
+                                                <td className="px-6 py-4 max-w-[240px]">
                                                     <Link
                                                         to={`/incidents/${incident.id}`}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="text-white font-medium truncate block hover:text-indigo-300 transition-colors group-hover:text-indigo-300"
+                                                        onClick={e => e.stopPropagation()}
+                                                        className="font-semibold text-sm truncate block transition-colors group-hover:text-primary-300"
+                                                        style={{ color: 'var(--color-text-primary)' }}
                                                     >
                                                         {incident.title}
                                                     </Link>
                                                 </td>
-                                                <td className="px-4 py-4 text-slate-400 hidden md:table-cell text-xs">
+                                                <td className="px-6 py-4 hidden md:table-cell text-xs font-medium"
+                                                    style={{ color: 'var(--color-text-secondary)' }}>
                                                     {incident.category ?? '—'}
                                                 </td>
-                                                <td className="px-4 py-4 hidden sm:table-cell">
+                                                <td className="px-6 py-4 hidden sm:table-cell">
                                                     <PriorityBadge priority={incident.priority} />
                                                 </td>
-                                                <td className="px-4 py-4">
+                                                <td className="px-6 py-4">
                                                     <StatusBadge status={incident.status} />
                                                 </td>
-                                                <td className="px-4 py-4 text-slate-500 text-xs hidden lg:table-cell whitespace-nowrap">
+                                                <td className="px-6 py-4 hidden lg:table-cell text-xs font-medium"
+                                                    style={{ color: 'var(--color-text-muted)' }}>
                                                     {formatDate(incident.createdAt)}
                                                 </td>
                                             </tr>
@@ -499,43 +434,58 @@ export default function IncidentListPage() {
                             </table>
                         </div>
 
-                        {/* ── Pagination footer ─────────────────────────────────── */}
+                        {/* ── Pagination ── */}
                         {!loading && total > 0 && (
-                            <div className="flex items-center justify-between px-6 py-4 border-t border-white/8 gap-4 flex-wrap">
-                                <p className="text-sm text-slate-500">
+                            <div
+                                className="flex items-center justify-between px-6 py-4 flex-wrap gap-4"
+                                style={{
+                                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                                    background: 'rgba(255,255,255,0.015)',
+                                }}
+                            >
+                                <p className="text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
                                     Showing{' '}
-                                    <span className="text-slate-300 font-medium">{fromItem}</span>
-                                    {' – '}
-                                    <span className="text-slate-300 font-medium">{toItem}</span>
-                                    {' of '}
-                                    <span className="text-slate-300 font-medium">{total}</span>{' '}
-                                    incident{total !== 1 ? 's' : ''}
+                                    <span className="font-bold text-white">{fromItem}</span>
+                                    {' '}–{' '}
+                                    <span className="font-bold text-white">{toItem}</span>
+                                    {' '}of{' '}
+                                    <span className="font-bold text-white">{total}</span>
+                                    {' '}results
                                 </p>
 
                                 <div className="flex items-center gap-2">
-                                    <button
+                                    <Button
                                         id="pagination-prev-btn"
-                                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.max(1, p - 1))}
                                         disabled={page === 1}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border border-white/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-white/8 enabled:hover:text-white text-slate-400"
+                                        icon={ChevronLeft}
                                     >
-                                        <ChevronLeft size={15} />
-                                        Previous
-                                    </button>
+                                        Prev
+                                    </Button>
 
-                                    <span className="text-xs text-slate-500 px-1">
+                                    <div
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                                        style={{
+                                            background: 'rgba(99,102,241,0.12)',
+                                            border: '1px solid rgba(99,102,241,0.2)',
+                                            color: 'var(--color-primary-300)',
+                                        }}
+                                    >
                                         {page} / {totalPages}
-                                    </span>
+                                    </div>
 
-                                    <button
+                                    <Button
                                         id="pagination-next-btn"
-                                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                                         disabled={page >= totalPages}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm font-medium border border-white/10 transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-white/8 enabled:hover:text-white text-slate-400"
+                                        iconRight={ChevronRight}
                                     >
                                         Next
-                                        <ChevronRight size={15} />
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         )}

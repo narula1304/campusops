@@ -41,6 +41,19 @@ export default function AuthProvider({ children }) {
     return data;
   };
 
+  const registerUser = async (userData) => {
+    const data = await authApi.register(userData);
+    const { token: newToken, user: newUser } = data;
+
+    localStorage.setItem('campusops_token', newToken);
+    localStorage.setItem('campusops_user', JSON.stringify(newUser));
+
+    setToken(newToken);
+    setUser(newUser);
+
+    return data;
+  };
+
   const logout = () => {
     localStorage.removeItem('campusops_token');
     localStorage.removeItem('campusops_user');
@@ -56,6 +69,7 @@ export default function AuthProvider({ children }) {
     user,
     token,
     login,
+    registerUser,
     logout,
     isAuthenticated,
     isLoading,

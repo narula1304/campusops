@@ -10,36 +10,33 @@ import {
 import { getIncident, assignIncident, resolveIncident, submitFeedback } from '../api/incidents'
 import { useAuth } from '../context/AuthContext'
 import SLACountdown from '../components/SLACountdown'
+import Sidebar from '../components/Sidebar'
+import { Card, CardContent } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
 // ── Shared badge components ────────────────────────────────────────────────────
-const PRIORITY_STYLES = {
-    CRITICAL: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    HIGH: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
-    MEDIUM: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
-    LOW: 'bg-green-500/15 text-green-400 border border-green-500/30',
-}
-const STATUS_STYLES = {
-    OPEN: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    IN_PROGRESS: 'bg-indigo-500/15 text-indigo-400 border border-indigo-500/30',
-    RESOLVED: 'bg-green-500/15 text-green-400 border border-green-500/30',
-    CLOSED: 'bg-slate-600/40 text-slate-400 border border-slate-500/30',
-    ESCALATED: 'bg-red-500/15 text-red-400 border border-red-500/30',
-    REOPENED: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30',
+function PriorityBadge({ priority }) {
+    const variantMap = {
+        CRITICAL: 'danger',
+        HIGH: 'warning',
+        MEDIUM: 'warning',
+        LOW: 'success',
+    }
+    return <Badge variant={variantMap[priority] || 'neutral'} className="px-2.5 py-1 uppercase tracking-wider">{priority}</Badge>
 }
 
-function PriorityBadge({ priority }) {
-    return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${PRIORITY_STYLES[priority] ?? 'bg-slate-700 text-slate-300'}`}>
-            {priority}
-        </span>
-    )
-}
 function StatusBadge({ status }) {
-    return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[status] ?? 'bg-slate-700 text-slate-300'}`}>
-            {status?.replace('_', ' ')}
-        </span>
-    )
+    const variantMap = {
+        OPEN: 'info',
+        IN_PROGRESS: 'primary',
+        RESOLVED: 'success',
+        CLOSED: 'neutral',
+        ESCALATED: 'danger',
+        REOPENED: 'warning',
+    }
+    return <Badge variant={variantMap[status] || 'neutral'} className="px-2.5 py-1 uppercase tracking-wider">{status?.replace('_', ' ')}</Badge>
 }
 
 // ── Date formatters ────────────────────────────────────────────────────────────
@@ -54,12 +51,12 @@ function formatDateTime(iso) {
 // ── Detail grid cell ───────────────────────────────────────────────────────────
 function DetailCell({ icon: Icon, label, children }) {
     return (
-        <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5 uppercase tracking-wide">
-                <Icon size={11} />
+        <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-bold text-text-muted flex items-center gap-1.5 uppercase tracking-widest">
+                <Icon size={12} />
                 {label}
             </span>
-            <span className="text-sm text-white">{children}</span>
+            <span className="text-sm font-medium text-text-primary">{children}</span>
         </div>
     )
 }
@@ -67,8 +64,8 @@ function DetailCell({ icon: Icon, label, children }) {
 // ── Full-page spinner ──────────────────────────────────────────────────────────
 function PageSpinner() {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-            <Loader2 size={32} className="animate-spin text-indigo-400" />
+        <div className="min-h-screen bg-bg-base flex items-center justify-center">
+            <Loader2 size={36} className="animate-spin text-primary-500" />
         </div>
     )
 }
@@ -77,7 +74,7 @@ function PageSpinner() {
 function StarRating({ value, onChange }) {
     const [hovered, setHovered] = useState(0)
     return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
             {[1, 2, 3, 4, 5].map(n => (
                 <button
                     key={n}
@@ -89,16 +86,16 @@ function StarRating({ value, onChange }) {
                     aria-label={`Rate ${n} star${n > 1 ? 's' : ''}`}
                 >
                     <Star
-                        size={28}
-                        className={`transition-colors ${n <= (hovered || value)
-                            ? 'text-yellow-400 fill-yellow-400'
-                            : 'text-slate-600'
+                        size={32}
+                        className={`transition-colors duration-200 ${n <= (hovered || value)
+                            ? 'text-warning-500 fill-warning-500 drop-shadow-sm'
+                            : 'text-border-strong hover:text-warning-500/50'
                             }`}
                     />
                 </button>
             ))}
             {value > 0 && (
-                <span className="ml-2 text-sm text-slate-400">{value}/5</span>
+                <span className="ml-3 text-sm font-bold text-text-secondary">{value} / 5</span>
             )}
         </div>
     )
@@ -126,77 +123,68 @@ function ResolveModal({ onClose, onSubmit, isLoading }) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                onClick={onClose}
-            />
-
-            {/* Panel */}
-            <div className="relative w-full max-w-md bg-slate-900 border border-white/12 rounded-2xl shadow-2xl overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 size={18} className="text-green-400" />
-                        <h2 className="text-white font-semibold">Resolve Incident</h2>
+            <div className="absolute inset-0 bg-bg-base/80 backdrop-blur-md" onClick={onClose} />
+            <div className="relative w-full max-w-md bg-surface border border-border-strong rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle bg-surface-hover/50">
+                    <div className="flex items-center gap-2.5">
+                        <CheckCircle2 size={20} className="text-success-500" />
+                        <h2 className="text-text-primary font-bold">Resolve Incident</h2>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                    >
-                        <X size={15} />
-                    </button>
+                    <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full h-8 w-8">
+                        <X size={16} />
+                    </Button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-slate-300">
-                            Resolution Note <span className="text-indigo-400">*</span>
+                <form onSubmit={handleSubmit} className="px-6 py-6 space-y-5">
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-bold text-text-secondary">
+                            Resolution Note <span className="text-danger-500">*</span>
                         </label>
                         <textarea
                             rows={4}
                             value={note}
                             onChange={e => { setNote(e.target.value); setError('') }}
                             placeholder="Describe how the incident was resolved…"
-                            className="w-full px-4 py-2.5 rounded-lg bg-white/8 border border-white/12 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
+                            className="w-full bg-surface border border-border-strong text-text-primary text-sm rounded-xl px-4 py-3 placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/50 hover:border-text-muted transition-all resize-none shadow-sm"
                         />
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                        <label className="text-sm font-medium text-slate-300">
-                            Resolution Photo URL <span className="text-indigo-400">*</span>
+                    <div className="flex flex-col gap-2">
+                        <label className="text-sm font-bold text-text-secondary">
+                            Resolution Photo URL <span className="text-danger-500">*</span>
                         </label>
-                        <input
+                        <Input
                             type="url"
                             value={photo}
                             onChange={e => { setPhoto(e.target.value); setError('') }}
                             placeholder="https://res.cloudinary.com/…"
-                            className="w-full px-4 py-2.5 rounded-lg bg-white/8 border border-white/12 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                         />
                     </div>
 
                     {error && (
-                        <p className="text-xs text-red-400 flex items-center gap-1.5">
-                            <AlertTriangle size={12} /> {error}
+                        <p className="text-xs font-medium text-danger-500 flex items-center gap-1.5 p-3 rounded-lg bg-danger-500-alpha border border-danger-500/20">
+                            <AlertTriangle size={14} /> {error}
                         </p>
                     )}
 
-                    <div className="flex gap-3 pt-1">
-                        <button
+                    <div className="flex gap-3 pt-2">
+                        <Button
                             type="button"
+                            variant="outline"
                             onClick={onClose}
-                            className="flex-1 py-2.5 rounded-xl border border-white/12 text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium transition-colors"
+                            className="flex-1"
                         >
                             Cancel
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="submit"
-                            disabled={isLoading}
-                            className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                            variant="success"
+                            isLoading={isLoading}
+                            className="flex-1 bg-success-600 hover:bg-success-500 text-white shadow-sm shadow-success-500/20 border-transparent"
+                            icon={CheckCircle2}
                         >
-                            {isLoading ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
                             {isLoading ? 'Submitting…' : 'Mark Resolved'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
@@ -207,13 +195,13 @@ function ResolveModal({ onClose, onSubmit, isLoading }) {
 // ── Section wrapper ────────────────────────────────────────────────────────────
 function Section({ title, icon: Icon, children }) {
     return (
-        <div className="bg-white/4 border border-white/10 rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-white/8 bg-white/3">
-                <Icon size={15} className="text-slate-400" />
-                <h2 className="text-sm font-semibold text-white">{title}</h2>
+        <Card className="overflow-hidden border-border-subtle">
+            <div className="flex items-center gap-3 px-6 py-4 border-b border-border-subtle bg-surface-hover/50">
+                <Icon size={18} className="text-text-muted" />
+                <h2 className="text-base font-bold text-text-primary">{title}</h2>
             </div>
-            <div className="px-6 py-5">{children}</div>
-        </div>
+            <div className="px-6 py-6">{children}</div>
+        </Card>
     )
 }
 
@@ -230,27 +218,21 @@ function BeforeAfterSlider({ beforeUrl, afterUrl }) {
         setSliderPos(pos)
     }
 
-    // Mouse events
     const onMouseDown = () => { isDragging.current = true }
     const onMouseMove = (e) => { if (isDragging.current) handleMove(e.clientX) }
     const onMouseUp = () => { isDragging.current = false }
-
-    // Touch events
     const onTouchMove = (e) => { handleMove(e.touches[0].clientX) }
 
     return (
         <div
             ref={containerRef}
-            className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/10 cursor-col-resize select-none"
+            className="relative w-full aspect-video rounded-xl overflow-hidden border border-border-strong cursor-col-resize select-none shadow-sm"
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
             onMouseLeave={onMouseUp}
             onTouchMove={onTouchMove}
         >
-            {/* AFTER image (full width, behind) */}
             <img src={afterUrl} alt="After" className="absolute inset-0 w-full h-full object-cover" />
-
-            {/* BEFORE image (clipped to left of slider) */}
             <div
                 className="absolute inset-0 overflow-hidden"
                 style={{ width: `${sliderPos}%` }}
@@ -258,22 +240,18 @@ function BeforeAfterSlider({ beforeUrl, afterUrl }) {
                 <img src={beforeUrl} alt="Before" className="absolute inset-0 w-full h-full object-cover"
                     style={{ width: containerRef.current?.offsetWidth + 'px' }} />
             </div>
-
-            {/* Divider line + handle */}
             <div
-                className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg cursor-col-resize"
+                className="absolute top-0 bottom-0 w-0.5 bg-white shadow-xl cursor-col-resize z-10"
                 style={{ left: `${sliderPos}%` }}
                 onMouseDown={onMouseDown}
                 onTouchStart={onMouseDown}
             >
-                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
-                    <ChevronsLeftRight size={16} className="text-slate-800" />
+                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white shadow-lg border border-slate-200 flex items-center justify-center transition-transform hover:scale-110">
+                    <ChevronsLeftRight size={16} className="text-slate-700" />
                 </div>
             </div>
-
-            {/* Labels */}
-            <span className="absolute top-2 left-2 text-xs font-bold text-white bg-black/50 px-2 py-0.5 rounded">BEFORE</span>
-            <span className="absolute top-2 right-2 text-xs font-bold text-white bg-black/50 px-2 py-0.5 rounded">AFTER</span>
+            <span className="absolute top-3 left-3 text-xs font-bold text-white bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-md z-10 shadow-sm">BEFORE</span>
+            <span className="absolute top-3 right-3 text-xs font-bold text-white bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-md z-10 shadow-sm">AFTER</span>
         </div>
     )
 }
@@ -282,7 +260,8 @@ function BeforeAfterSlider({ beforeUrl, afterUrl }) {
 export default function IncidentDetailPage() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { user } = useAuth()
+    const { user, logout } = useAuth()
+    const handleLogout = () => { logout(); navigate('/login') }
 
     const [incident, setIncident] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -295,7 +274,6 @@ export default function IncidentDetailPage() {
     const [comment, setComment] = useState('')
     const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
 
-    // Fetch / refetch incident
     const fetchIncident = useCallback(async () => {
         setLoading(true)
         setFetchError('')
@@ -311,7 +289,6 @@ export default function IncidentDetailPage() {
 
     useEffect(() => { fetchIncident() }, [fetchIncident])
 
-    // ── Action handlers ────────────────────────────────────────────────────────
     const handleAssign = async () => {
         setActionLoading(true)
         try {
@@ -354,25 +331,36 @@ export default function IncidentDetailPage() {
         }
     }
 
-    // ── Loading / error states ─────────────────────────────────────────────────
-    if (loading) return <PageSpinner />
+    // Import Sidebar dynamically at top
+    if (loading) {
+        return (
+            <div className="min-h-screen flex" style={{ background: 'transparent' }}>
+                <div className="ml-[17rem] flex-1 flex items-center justify-center">
+                    <Loader2 size={36} className="animate-spin" style={{ color: 'var(--color-primary-400)' }} />
+                </div>
+            </div>
+        )
+    }
 
     if (fetchError) {
         return (
-            <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center gap-4 text-center p-8">
-                <AlertTriangle size={40} className="text-red-400" />
-                <p className="text-white font-semibold text-lg">Couldn't load incident</p>
-                <p className="text-slate-400 text-sm max-w-sm">{fetchError}</p>
-                <button onClick={() => navigate(-1)} className="mt-2 text-indigo-400 hover:text-indigo-300 text-sm flex items-center gap-1">
-                    <ArrowLeft size={14} /> Go back
-                </button>
+            <div className="min-h-screen flex" style={{ background: 'transparent' }}>
+                <div className="ml-[17rem] flex-1 flex flex-col items-center justify-center gap-5 text-center p-8">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                        <AlertTriangle size={32} style={{ color: 'var(--color-danger-400)' }} />
+                    </div>
+                    <div>
+                        <p className="text-lg font-bold text-white">Couldn't load incident</p>
+                        <p className="text-sm mt-1" style={{ color: 'var(--color-text-secondary)' }}>{fetchError}</p>
+                    </div>
+                    <Button variant="outline" onClick={() => navigate(-1)} icon={ArrowLeft}>Go back</Button>
+                </div>
             </div>
         )
     }
 
     if (!incident) return null
 
-    // ── Role-based action visibility ───────────────────────────────────────────
     const role = user?.role
     const userId = user?.id
     const status = incident.status
@@ -391,259 +379,317 @@ export default function IncidentDetailPage() {
     const photos = incident.evidencePhotos ?? []
     const statusLog = incident.statusLogEntries ?? []
 
-    // ── Render ─────────────────────────────────────────────────────────────────
     return (
         <>
-            <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-                <div className="max-w-3xl mx-auto px-4 py-10 space-y-6">
+            <div className="min-h-screen flex" style={{ background: 'transparent' }}>
+                <Sidebar user={user} onLogout={handleLogout} />
 
-                    {/* ── Page header ─────────────────────────────────────────── */}
-                    <div>
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="flex items-center gap-2 text-slate-400 hover:text-white text-sm font-medium mb-5 transition-colors group"
-                        >
-                            <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
-                            Back
-                        </button>
+                <main className="ml-[17rem] flex-1 min-h-screen flex flex-col">
+                {/* ── Sticky page header ── */}
+                <header
+                    className="sticky top-0 z-30 px-8 py-4 flex items-center gap-4"
+                    style={{ background: 'rgba(3,7,18,0.85)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest transition-colors group"
+                        style={{ color: 'var(--color-text-muted)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--color-text-primary)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--color-text-muted)'}
+                    >
+                        <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+                        Back
+                    </button>
+                    <div className="h-4 w-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
+                    <span className="font-mono text-xs font-bold" style={{ color: 'var(--color-primary-400)' }}>
+                        {incident.incidentNumber ?? `#${incident.id?.slice(0, 8)}`}
+                    </span>
+                    <div className="flex-1" />
+                    <PriorityBadge priority={incident.priority} />
+                    <StatusBadge status={incident.status} />
+                </header>
 
-                        <div className="bg-white/4 border border-white/10 rounded-2xl px-7 py-6">
-                            {/* Incident number */}
-                            <p className="text-xs font-mono text-indigo-400 mb-2 tracking-wide">
-                                {incident.incidentNumber ?? `#${incident.id?.slice(0, 8)}`}
-                            </p>
-
-                            {/* Title + badges */}
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                <h1 className="text-xl font-bold text-white leading-snug">
-                                    {incident.title}
-                                </h1>
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <PriorityBadge priority={incident.priority} />
-                                    <StatusBadge status={incident.status} />
-                                </div>
-                            </div>
-
-                            {/* Created date */}
-                            <p className="text-xs text-slate-500 mt-3 flex items-center gap-1.5">
-                                <Calendar size={11} />
-                                {formatDateTime(incident.createdAt)}
+                <div className="px-8 py-8 space-y-8 max-w-5xl">
+                    {/* ── Title card ── */}
+                    <div
+                        className="rounded-2xl p-7"
+                        style={{
+                            background: 'var(--surface-2)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            boxShadow: '0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                        }}
+                    >
+                        <h1 className="text-2xl font-bold text-white leading-snug mb-4">{incident.title}</h1>
+                        <div className="flex items-center gap-2 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Calendar size={13} style={{ color: 'var(--color-text-muted)' }} />
+                            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                                Reported on {formatDateTime(incident.createdAt)}
                             </p>
                         </div>
                     </div>
 
-                    {/* ── Details grid ────────────────────────────────────────── */}
-                    <Section title="Incident Details" icon={ClipboardList}>
-                        {/* Description */}
-                        <p className="text-sm text-slate-300 leading-relaxed mb-6">
-                            {incident.description}
-                        </p>
-
-                        <div className="grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
-                            <DetailCell icon={Tag} label="Category">
-                                {incident.category ?? '—'}
-                            </DetailCell>
-
-                            <DetailCell icon={Building2} label="Department">
-                                {incident.departmentId ?? '—'}
-                            </DetailCell>
-
-                            <DetailCell icon={MapPin} label="Location">
-                                {incident.location?.block
-                                    ? `Block ${incident.location.block}${incident.location.room ? ` · ${incident.location.room}` : ''}`
-                                    : '—'}
-                            </DetailCell>
-
-                            <DetailCell icon={User} label="Reporter">
-                                {incident.creator?.name ?? incident.creatorId ?? '—'}
-                            </DetailCell>
-
-                            <DetailCell icon={User} label="Assigned To">
-                                {incident.assignedTo?.name ?? (incident.assignedToId ? incident.assignedToId : 'Unassigned')}
-                            </DetailCell>
-
-                            <DetailCell icon={Clock} label="SLA Deadline">
-                                <div className="flex flex-col gap-1">
-                                    <span className={isSLABreached ? 'text-red-400 text-xs' : 'text-slate-300 text-xs'}>
-                                        {incident.sla?.deadlineAt
-                                            ? formatDateTime(incident.sla.deadlineAt)
-                                            : '—'}
-                                        {isSLABreached && ' ⚠ Breached'}
-                                    </span>
-                                    <SLACountdown deadline={incident.sla?.deadlineAt ?? incident.slaDeadlineAt ?? null} />
-                                </div>
-                            </DetailCell>
-
-                            <DetailCell icon={Calendar} label="Created At">
-                                {formatDateTime(incident.createdAt)}
-                            </DetailCell>
-
-                            <DetailCell icon={CheckCircle2} label="Resolved At">
-                                {incident.resolvedAt ? formatDateTime(incident.resolvedAt) : '—'}
-                            </DetailCell>
-                        </div>
-                    </Section>
-
-                    {/* ── Evidence photos ──────────────────────────────────────── */}
-                    {photos.length > 0 && (
-                        <Section title="Evidence Photos" icon={Image}>
-                            <div className="grid grid-cols-3 gap-3">
-                                {photos.map((url, i) => (
-                                    <a
-                                        key={i}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="group block aspect-video rounded-xl overflow-hidden border border-white/10 hover:border-indigo-500/50 transition-colors bg-slate-800"
-                                    >
-                                        <img
-                                            src={url}
-                                            alt={`Evidence ${i + 1}`}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                            onError={(e) => {
-                                                e.target.parentElement.classList.add('flex', 'items-center', 'justify-center')
-                                                e.target.replaceWith(
-                                                    Object.assign(document.createElement('span'), {
-                                                        textContent: '🖼',
-                                                        className: 'text-2xl',
-                                                    })
-                                                )
-                                            }}
-                                        />
-                                    </a>
-                                ))}
-                            </div>
-                        </Section>
-                    )}
-
-                    {/* ── Resolution section ───────────────────────────────────── */}
-                    {hasResolution && incident.resolutionNote && (
-                        <Section title="Resolution" icon={CheckCircle2}>
-                            <p className="text-sm text-slate-300 leading-relaxed">
-                                {incident.resolutionNote}
-                            </p>
-                            {photos.length > 0 && incident.resolutionPhoto ? (
-                                <div className="mt-4">
-                                    <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">
-                                        Before / After Comparison
-                                    </p>
-                                    <BeforeAfterSlider
-                                        beforeUrl={photos[0]}
-                                        afterUrl={incident.resolutionPhoto}
-                                    />
-                                </div>
-                            ) : incident.resolutionPhoto ? (
-                                <a
-                                    href={incident.resolutionPhoto}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-4 block w-48 aspect-video rounded-xl overflow-hidden border border-white/10 hover:border-indigo-500/50 transition-colors"
-                                >
-                                    <img
-                                        src={incident.resolutionPhoto}
-                                        alt="Resolution photo"
-                                        className="w-full h-full object-cover"
-                                    />
-                                </a>
-                            ) : null}
-                        </Section>
-                    )}
-
-                    {/* ── Status history ───────────────────────────────────────── */}
-                    {statusLog.length > 0 && (
-                        <Section title="Status History" icon={ChevronRight}>
-                            <ol className="relative border-l border-white/10 ml-2 space-y-6">
-                                {statusLog.map((entry, i) => (
-                                    <li key={entry.id ?? i} className="ml-5">
-                                        <span className="absolute -left-1.5 w-3 h-3 rounded-full bg-indigo-600 border-2 border-slate-900" />
-                                        <div className="flex flex-col gap-0.5">
-                                            <StatusBadge status={entry.status} />
-                                            {entry.note && (
-                                                <p className="text-xs text-slate-400 mt-1">{entry.note}</p>
-                                            )}
-                                            <time className="text-xs text-slate-600">
-                                                {formatDateTime(entry.createdAt)}
-                                            </time>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ol>
-                        </Section>
-                    )}
-
-                    {/* ── Action buttons ───────────────────────────────────────── */}
-                    <div className="bg-white/4 border border-white/10 rounded-2xl px-7 py-6 space-y-5">
-                        <h2 className="text-sm font-semibold text-white">Actions</h2>
-
-                        {/* ADMIN: Assign */}
-                        {canAssign && (
-                            <button
-                                onClick={handleAssign}
-                                disabled={actionLoading}
-                                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.99]"
-                            >
-                                {actionLoading
-                                    ? <><Loader2 size={16} className="animate-spin" /> Assigning…</>
-                                    : <><ShieldCheck size={16} /> Assign Staff</>
-                                }
-                            </button>
-                        )}
-
-                        {/* MAINTENANCE/SECURITY: Resolve */}
-                        {canResolve && (
-                            <button
-                                onClick={() => setShowResolveModal(true)}
-                                className="w-full py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:shadow-green-500/20 active:scale-[0.99]"
-                            >
-                                <CheckCircle2 size={16} /> Resolve Incident
-                            </button>
-                        )}
-
-                        {/* STUDENT/FACULTY: Feedback */}
-                        {canFeedback && (
-                            <div className="space-y-4">
-                                <p className="text-sm text-slate-300">
-                                    How satisfied are you with the resolution?
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        {/* ── Left column ── */}
+                        <div className="lg:col-span-2 space-y-8">
+                            <Section title="Incident Details" icon={ClipboardList}>
+                                <p className="text-base text-text-primary leading-relaxed mb-8 whitespace-pre-wrap">
+                                    {incident.description}
                                 </p>
-                                <StarRating value={starScore} onChange={setStarScore} />
-                                <textarea
-                                    rows={3}
-                                    value={comment}
-                                    onChange={e => setComment(e.target.value)}
-                                    placeholder="Optional comment…"
-                                    className="w-full px-4 py-2.5 rounded-lg bg-white/8 border border-white/12 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition resize-none"
-                                />
-                                <button
-                                    onClick={handleFeedback}
-                                    disabled={actionLoading || starScore === 0}
-                                    className="w-full py-3 rounded-xl bg-yellow-500 hover:bg-yellow-400 disabled:opacity-60 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
-                                >
-                                    {actionLoading
-                                        ? <><Loader2 size={16} className="animate-spin" /> Submitting…</>
-                                        : <><Star size={15} className="fill-slate-900" /> Submit Feedback</>
-                                    }
-                                </button>
-                            </div>
-                        )}
 
-                        {/* Feedback already submitted */}
-                        {feedbackSubmitted && (
-                            <div className="flex items-center gap-2 text-green-400 text-sm">
-                                <CheckCircle2 size={16} />
-                                Feedback submitted — thank you!
-                            </div>
-                        )}
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-2">
+                                    <DetailCell icon={Tag} label="Category">
+                                        {incident.category ?? '—'}
+                                    </DetailCell>
 
-                        {/* Chat — always visible for all roles */}
-                        <Link
-                            id="open-incident-chat-btn"
-                            to={`/incidents/${id}/chat`}
-                            className="w-full py-3 rounded-xl border border-indigo-500/30 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 font-semibold text-sm flex items-center justify-center gap-2 transition-all"
-                        >
-                            <MessageSquare size={16} /> Open Incident Chat
-                        </Link>
+                                    <DetailCell icon={Building2} label="Department">
+                                        {incident.departmentId ?? '—'}
+                                    </DetailCell>
+
+                                    <DetailCell icon={MapPin} label="Location">
+                                        {incident.location?.block
+                                            ? `Block ${incident.location.block}${incident.location.room ? ` · Room ${incident.location.room}` : ''}`
+                                            : '—'}
+                                    </DetailCell>
+
+                                    <DetailCell icon={Clock} label="SLA Deadline">
+                                        <div className="flex flex-col gap-1.5 mt-0.5">
+                                            <span className={isSLABreached ? 'text-danger-500 font-medium text-sm flex items-center gap-1.5' : 'text-text-primary font-medium text-sm flex items-center gap-1.5'}>
+                                                {incident.sla?.deadlineAt
+                                                    ? formatDateTime(incident.sla.deadlineAt)
+                                                    : '—'}
+                                                {isSLABreached && <AlertTriangle size={14} />}
+                                            </span>
+                                            <SLACountdown deadline={incident.sla?.deadlineAt ?? incident.slaDeadlineAt ?? null} />
+                                        </div>
+                                    </DetailCell>
+                                </div>
+                            </Section>
+
+                            {/* ── Evidence photos ──────────────────────────────────────── */}
+                            {photos.length > 0 && (
+                                <Section title="Evidence Photos" icon={Image}>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                        {photos.map((url, i) => (
+                                            <a
+                                                key={i}
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="group block aspect-square sm:aspect-video rounded-xl overflow-hidden border border-border-strong hover:border-primary-500 transition-all bg-surface-hover shadow-sm"
+                                            >
+                                                <img
+                                                    src={url}
+                                                    alt={`Evidence ${i + 1}`}
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                    onError={(e) => {
+                                                        e.target.parentElement.classList.add('flex', 'items-center', 'justify-center')
+                                                        e.target.replaceWith(
+                                                            Object.assign(document.createElement('span'), {
+                                                                textContent: '🖼',
+                                                                className: 'text-3xl opacity-50',
+                                                            })
+                                                        )
+                                                    }}
+                                                />
+                                            </a>
+                                        ))}
+                                    </div>
+                                </Section>
+                            )}
+
+                            {/* ── Resolution section ───────────────────────────────────── */}
+                            {hasResolution && incident.resolutionNote && (
+                                <Section title="Resolution Report" icon={CheckCircle2}>
+                                    <p className="text-base text-text-primary leading-relaxed whitespace-pre-wrap">
+                                        {incident.resolutionNote}
+                                    </p>
+                                    
+                                    <div className="mt-8 pt-6 border-t border-border-subtle">
+                                        <p className="text-xs font-bold text-text-muted mb-4 uppercase tracking-widest">
+                                            {photos.length > 0 && incident.resolutionPhoto ? 'Before & After Comparison' : 'Resolution Evidence'}
+                                        </p>
+                                        
+                                        {photos.length > 0 && incident.resolutionPhoto ? (
+                                            <BeforeAfterSlider
+                                                beforeUrl={photos[0]}
+                                                afterUrl={incident.resolutionPhoto}
+                                            />
+                                        ) : incident.resolutionPhoto ? (
+                                            <a
+                                                href={incident.resolutionPhoto}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block w-full max-w-sm aspect-video rounded-xl overflow-hidden border border-border-strong hover:border-primary-500 transition-all shadow-sm group"
+                                            >
+                                                <img
+                                                    src={incident.resolutionPhoto}
+                                                    alt="Resolution photo"
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                />
+                                            </a>
+                                        ) : (
+                                            <p className="text-sm text-text-muted italic">No photo provided.</p>
+                                        )}
+                                    </div>
+                                </Section>
+                            )}
+                        </div>
+
+                        {/* ── Right column (People & History) ──────────────────────────────────────── */}
+                        <div className="space-y-8">
+                            {/* People */}
+                            <Card>
+                                <CardContent className="p-6 space-y-6">
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
+                                            <User size={14} /> Reporter
+                                        </h3>
+                                        <div className="flex items-center gap-3 bg-surface-hover p-3 rounded-xl border border-border-subtle">
+                                            <div className="w-10 h-10 rounded-full bg-primary-500/10 border border-primary-500/20 flex items-center justify-center shrink-0">
+                                                <User size={16} className="text-primary-400" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-bold text-text-primary truncate">{incident.creator?.name ?? incident.creatorId ?? '—'}</p>
+                                                {incident.creator?.email && <p className="text-xs text-text-muted truncate mt-0.5">{incident.creator.email}</p>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-4 pt-6 border-t border-border-subtle">
+                                        <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest flex items-center gap-2">
+                                            <ShieldCheck size={14} /> Assignee
+                                        </h3>
+                                        {incident.assignedToId ? (
+                                            <div className="flex items-center gap-3 bg-surface-hover p-3 rounded-xl border border-border-subtle">
+                                                <div className="w-10 h-10 rounded-full bg-warning-500-alpha border border-warning-500/30 flex items-center justify-center shrink-0">
+                                                    <User size={16} className="text-warning-500" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-sm font-bold text-text-primary truncate">{incident.assignedTo?.name ?? incident.assignedToId}</p>
+                                                    {incident.assignedTo?.email && <p className="text-xs text-text-muted truncate mt-0.5">{incident.assignedTo.email}</p>}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-surface-hover border border-border-subtle border-dashed p-4 rounded-xl text-center">
+                                                <p className="text-sm font-medium text-text-secondary">Unassigned</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Actions */}
+                            <Card className="border-primary-500/30 shadow-primary-500/5">
+                                <CardContent className="p-6 space-y-5 bg-gradient-to-br from-surface to-primary-500/5 rounded-2xl">
+                                    <h2 className="text-sm font-bold text-text-primary mb-4 flex items-center gap-2">
+                                        <AlertTriangle size={16} className="text-primary-400" /> Actions
+                                    </h2>
+
+                                    {/* ADMIN: Assign */}
+                                    {canAssign && (
+                                        <Button
+                                            onClick={handleAssign}
+                                            isLoading={actionLoading}
+                                            variant="primary"
+                                            className="w-full justify-center"
+                                            icon={ShieldCheck}
+                                        >
+                                            {actionLoading ? 'Assigning…' : 'Assign Staff'}
+                                        </Button>
+                                    )}
+
+                                    {/* MAINTENANCE/SECURITY: Resolve */}
+                                    {canResolve && (
+                                        <Button
+                                            onClick={() => setShowResolveModal(true)}
+                                            className="w-full justify-center bg-success-600 hover:bg-success-500 text-white shadow-success-500/20 border-transparent"
+                                            icon={CheckCircle2}
+                                        >
+                                            Resolve Incident
+                                        </Button>
+                                    )}
+
+                                    {/* STUDENT/FACULTY: Feedback */}
+                                    {canFeedback && (
+                                        <div className="space-y-4 p-4 rounded-xl bg-surface-hover border border-border-strong">
+                                            <p className="text-sm font-bold text-text-primary">
+                                                Rate the resolution
+                                            </p>
+                                            <StarRating value={starScore} onChange={setStarScore} />
+                                            <textarea
+                                                rows={3}
+                                                value={comment}
+                                                onChange={e => setComment(e.target.value)}
+                                                placeholder="Leave a comment (optional)…"
+                                                className="w-full bg-surface border border-border-strong text-text-primary text-sm rounded-xl px-4 py-2.5 placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/50 hover:border-text-muted transition-all resize-none shadow-sm"
+                                            />
+                                            <Button
+                                                onClick={handleFeedback}
+                                                disabled={actionLoading || starScore === 0}
+                                                isLoading={actionLoading}
+                                                className="w-full justify-center bg-warning-500 hover:bg-warning-400 text-slate-900 border-transparent shadow-warning-500/20 font-bold"
+                                                icon={Star}
+                                            >
+                                                Submit Feedback
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Feedback already submitted */}
+                                    {feedbackSubmitted && (
+                                        <div className="flex items-center gap-2 text-sm font-medium p-3 rounded-lg" style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--color-success-400)' }}>
+                                            <CheckCircle2 size={16} />
+                                            Feedback submitted — thank you!
+                                        </div>
+                                    )}
+
+                                    {/* Chat — always visible */}
+                                    <Button
+                                        id="open-incident-chat-btn"
+                                        variant="outline"
+                                        onClick={() => navigate(`/incidents/${id}/chat`)}
+                                        className="w-full justify-center"
+                                        icon={MessageSquare}
+                                    >
+                                        Open Incident Chat
+                                    </Button>
+                                </CardContent>
+                            </Card>
+
+                            {/* ── Status history ── */}
+                            {statusLog.length > 0 && (
+                                <Section title="Status History" icon={Clock}>
+                                    <ol className="relative ml-2.5 space-y-5" style={{ borderLeft: '1px solid rgba(255,255,255,0.07)' }}>
+                                        {statusLog.map((entry, i) => (
+                                            <li key={entry.id ?? i} className="ml-6 relative">
+                                                <span
+                                                    className="absolute -left-[1.625rem] top-0.5 w-3 h-3 rounded-full flex-shrink-0"
+                                                    style={{
+                                                        background: i === 0 ? 'var(--color-primary-500)' : 'var(--surface-4)',
+                                                        border: `2px solid ${i === 0 ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.1)'}`,
+                                                        boxShadow: i === 0 ? '0 0 8px rgba(99,102,241,0.5)' : 'none',
+                                                    }}
+                                                />
+                                                <div className="flex flex-col gap-1.5">
+                                                    <StatusBadge status={entry.status} />
+                                                    {entry.note && (
+                                                        <p className="text-xs font-medium p-2.5 rounded-lg mt-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: 'var(--color-text-secondary)' }}>
+                                                            {entry.note}
+                                                        </p>
+                                                    )}
+                                                    <time className="text-[10px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
+                                                        {formatDateTime(entry.createdAt)}
+                                                    </time>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                </Section>
+                            )}
+                        </div>
                     </div>
                 </div>
+                </main>
             </div>
 
             {/* ── Resolve modal ──────────────────────────────────────────────── */}

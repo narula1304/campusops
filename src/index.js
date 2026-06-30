@@ -139,6 +139,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
     const analyticsRoutes = require('./api/routes/analyticsRoutes')
     const panicRoutes = require('./api/routes/panicRoutes')
     const chatRoutes = require('./api/routes/chatRoutes')
+    const departmentRoutes = require('./api/routes/departmentRoutes')
 
     // ── Express app ──────────────────────────────────────────────────────────
     const app = express()
@@ -158,6 +159,7 @@ function buildApp({ io, redis, slaQueue, mailer, prismaClient = prisma }) {
 
     app.use('/api/auth', authRoutes(prismaClient, process.env.JWT_SECRET))
     app.use('/api/users', userRoutes(prismaClient))
+    app.use('/api/departments', departmentRoutes(prismaClient))
     app.use('/api/alerts', alertRoutes(prismaClient, io))
     app.use('/api/analytics', analyticsRoutes(prismaClient, redis))
 
@@ -272,7 +274,10 @@ function startServer() {
 
     // Create OpenAI client
     const OpenAI = require('openai')
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_api_key_to_allow_startup' })
+    const openai = new OpenAI({ 
+        apiKey: process.env.GROQ_API_KEY || 'dummy_api_key_to_allow_startup',
+        baseURL: 'https://api.groq.com/openai/v1'
+    })
 
     // Start workers
     const emailWorker = createEmailWorker({ mailer, redis })

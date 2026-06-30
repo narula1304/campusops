@@ -37,10 +37,13 @@ class IncidentController {
 
             // Call OpenAI directly (synchronous, not queued — user is waiting for this)
             const OpenAI = require('openai')
-            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+            const openai = new OpenAI({ 
+                apiKey: process.env.GROQ_API_KEY,
+                baseURL: 'https://api.groq.com/openai/v1' 
+            })
 
             const completion = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: 'llama-3.1-8b-instant',
                 messages: [{
                     role: 'system',
                     content: `You classify campus incidents. Given a title and/or description,
