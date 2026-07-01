@@ -11,6 +11,8 @@
 
 # 🏫 CampusOps
 
+**🚀 Live Demo:** [https://campusops-six.vercel.app](https://campusops-six.vercel.app)
+
 ### Smart Campus Operations & Incident Management System
 
 > A centralized, real-time campus operations platform where any stakeholder can report an infrastructure issue in under 60 seconds, the right person is automatically assigned, SLA enforcement ensures accountability, and admins have real-time visibility of campus health — powered by AI that makes the system smarter over time.
