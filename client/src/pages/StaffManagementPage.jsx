@@ -13,11 +13,11 @@ import { Input } from '../components/ui/Input'
 
 // ── Staff state badge (inline) ────────────────────────────────────────────────
 const STATE_COLORS = {
-    AVAILABLE:    { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.2)',  text: '#34d399' },
-    ACTIVE:       { bg: 'rgba(16,185,129,0.1)',  border: 'rgba(16,185,129,0.2)',  text: '#34d399' },
-    BUSY:         { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.2)',  text: '#fbbf24' },
-    UNDER_REVIEW: { bg: 'rgba(245,158,11,0.1)',  border: 'rgba(245,158,11,0.2)',  text: '#fbbf24' },
-    SUSPENDED:    { bg: 'rgba(239,68,68,0.1)',   border: 'rgba(239,68,68,0.2)',   text: '#f87171' },
+    AVAILABLE: { bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', text: '#34d399' },
+    ACTIVE: { bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', text: '#34d399' },
+    BUSY: { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', text: '#fbbf24' },
+    UNDER_REVIEW: { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', text: '#fbbf24' },
+    SUSPENDED: { bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)', text: '#f87171' },
 }
 
 function StateBadge({ state }) {
@@ -41,8 +41,8 @@ function Skeleton({ className = '' }) {
 // ── Role gradient avatar ───────────────────────────────────────────────────────
 const ROLE_AVATAR = {
     MAINTENANCE: { from: '#fbbf24', to: '#f59e0b' },
-    SECURITY:    { from: '#f87171', to: '#ef4444' },
-    ADMIN:       { from: '#818cf8', to: '#6366f1' },
+    SECURITY: { from: '#f87171', to: '#ef4444' },
+    ADMIN: { from: '#818cf8', to: '#6366f1' },
 }
 
 function RoleAvatar({ name, role }) {
@@ -152,12 +152,13 @@ export default function StaffManagementPage() {
         setLoading(true)
         setError('')
         try {
-            const [maint, sec, depts] = await Promise.all([
+            const [maint, sec, admins, depts] = await Promise.all([
                 listUsers({ role: 'MAINTENANCE', limit: 50 }),
                 listUsers({ role: 'SECURITY', limit: 50 }),
+                listUsers({ role: 'ADMIN', limit: 50 }),
                 getDepartments()
             ])
-            setStaff([...(maint?.data ?? []), ...(sec?.data ?? [])])
+            setStaff([...(maint?.data ?? []), ...(sec?.data ?? []), ...(admins?.data ?? [])])
             setDepartments(depts ?? [])
         } catch (e) {
             setError(e?.response?.data?.error?.message ?? 'Failed to load data')
@@ -203,7 +204,7 @@ export default function StaffManagementPage() {
             await register(addForm)
             toast.success('Staff member added successfully')
             setShowAddStaff(false)
-            setAddForm({ name: '', email: '', password: '', role: 'MAINTENANCE', departmentId: '', employeeId: '' })
+            setAddForm({ name: '', email: '', password: '', role: 'MAINTENANCE', departmentId: '', employeeId: '', designation: '' })
             fetchData()
         } catch (err) {
             toast.error(err?.response?.data?.error?.message ?? 'Failed to add staff')
@@ -214,6 +215,7 @@ export default function StaffManagementPage() {
 
     const maintenance = staff.filter((m) => m.role === 'MAINTENANCE')
     const security = staff.filter((m) => m.role === 'SECURITY')
+    const admins = staff.filter((m) => m.role === 'ADMIN')
 
     return (
         <div className="min-h-screen flex" style={{ background: 'transparent' }}>
@@ -332,6 +334,7 @@ export default function StaffManagementPage() {
                     {[
                         { label: 'Maintenance', members: maintenance },
                         { label: 'Security', members: security },
+                        { label: 'Administrators', members: admins },
                     ].map(({ label, members }) => (
                         <section key={label}>
                             <div className="flex items-center gap-2 mb-4">
@@ -525,7 +528,6 @@ export default function StaffManagementPage() {
                                                 className="w-full text-sm font-medium rounded-xl px-4 py-3 appearance-none outline-none pr-10 cursor-pointer text-white"
                                                 style={{
                                                     background: 'rgba(255,255,255,0.04)',
-                                                    border: '1px solid rgba(255,255,255,0.08)',
                                                 }}
                                             >
                                                 <option value="MAINTENANCE">Maintenance</option>
@@ -544,6 +546,32 @@ export default function StaffManagementPage() {
                                             onChange={e => setAddForm({ ...addForm, employeeId: e.target.value })}
                                             placeholder="EMP-001"
                                         />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-text-secondary)' }}>Designation</label>
+                                    <div className="relative">
+                                        <select
+                                            value={addForm.designation}
+                                            onChange={e => setAddForm({ ...addForm, designation: e.target.value })}
+                                            className="w-full text-sm font-medium rounded-xl px-4 py-3 appearance-none outline-none pr-10 cursor-pointer text-white"
+                                            style={{
+                                                background: 'rgba(255,255,255,0.04)',
+                                                border: '1px solid rgba(255,255,255,0.08)',
+                                            }}
+                                        >
+                                            <option value="">Select Designation...</option>
+                                            <option value="System Administrator">System Administrator</option>
+                                            <option value="IT Support Specialist">IT Support Specialist</option>
+
+                                            <option value="Electrician">Electrician</option>
+                                            <option value="Plumber">Plumber</option>
+                                            <option value="Janitor">Janitor</option>
+                                            <option value="Security Officer">Security Officer</option>
+                                            <option value="Housekeeper">Housekeeper</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--color-text-muted)' }} />
                                     </div>
                                 </div>
                                 <div className="space-y-2">

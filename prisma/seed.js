@@ -24,7 +24,7 @@ async function main() {
 
     // ── Department ───────────────────────────────────────────────────────────
     const dept = await prisma.department.upsert({
-        where:  { code: 'CSE' },
+        where: { code: 'CSE' },
         update: {},
         create: {
             name: 'Computer Science & Engineering',
@@ -38,43 +38,43 @@ async function main() {
     const users = [
         {
             email: 'student@campus.edu',
-            name:  'Ankit Sharma',
-            role:  'STUDENT',
+            name: 'Ankit Sharma',
+            role: 'STUDENT',
             rollNo: 'CS21001',
-            year:   3,
+            year: 3,
         },
         {
             email: 'faculty@campus.edu',
-            name:  'Dr. Priya Verma',
-            role:  'FACULTY',
-            employeeId:  'FAC-001',
+            name: 'Dr. Priya Verma',
+            role: 'FACULTY',
+            employeeId: 'FAC-001',
             designation: 'Associate Professor',
         },
         {
             email: 'maintenance@campus.edu',
-            name:  'Raju Mehta',
-            role:  'MAINTENANCE',
-            employeeId:     'MNT-001',
-            designation:    'Maintenance Technician',
+            name: 'Raju Mehta',
+            role: 'MAINTENANCE',
+            employeeId: 'MNT-001',
+            designation: 'Maintenance Technician',
             specialization: ['PLUMBING', 'ELECTRICAL'],
-            shiftDays:      ['MON', 'TUE', 'WED', 'THU', 'FRI'],
-            shiftStart:     '09:00',
-            shiftEnd:       '18:00',
+            shiftDays: ['MON', 'TUE', 'WED', 'THU', 'FRI'],
+            shiftStart: '09:00',
+            shiftEnd: '18:00',
         },
         {
             email: 'security@campus.edu',
-            name:  'Dinesh Rawat',
-            role:  'SECURITY',
-            employeeId:  'SEC-001',
+            name: 'Dinesh Rawat',
+            role: 'SECURITY',
+            employeeId: 'SEC-001',
             designation: 'Security Officer',
             badgeNumber: 'B-2024',
-            zone:        'Block A-C',
+            zone: 'Block A-C',
         },
         {
             email: 'admin@campus.edu',
-            name:  'Neha Singh',
-            role:  'ADMIN',
-            employeeId:  'ADM-001',
+            name: 'Neha Singh',
+            role: 'ADMIN',
+            employeeId: 'ADM-001',
             designation: 'Campus Administrator',
             accessLevel: 'SUPERADMIN',
         },
@@ -82,13 +82,13 @@ async function main() {
 
     for (const u of users) {
         const created = await prisma.user.upsert({
-            where:  { email: u.email },
+            where: { email: u.email },
             update: { passwordHash: hash },
             create: {
                 ...u,
                 passwordHash: hash,
                 departmentId: dept.id,
-                isActive:     true,
+                isActive: true,
             },
         })
         console.log(`✓ ${created.role.padEnd(12)} ${created.email}`)

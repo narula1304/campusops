@@ -22,7 +22,9 @@ export default function RegisterPage() {
         role:     'STUDENT',
         rollNo:   '',
         year:     '',
-        batch:    ''
+        batch:    '',
+        employeeId: '',
+        designation: ''
     })
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error,        setError]        = useState('')
@@ -137,6 +139,26 @@ export default function RegisterPage() {
                             <div className="grid grid-cols-1 gap-4">
                                 <div className="space-y-1.5">
                                     <label className="block text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+                                        Role
+                                    </label>
+                                    <select
+                                        name="role"
+                                        value={form.role}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none transition-all focus:ring-2 focus:ring-primary-500/20"
+                                        style={{
+                                            background: 'rgba(0,0,0,0.2)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            color: 'var(--color-text-primary)'
+                                        }}
+                                    >
+                                        <option value="STUDENT" style={{background: '#1e1b4b'}}>Student</option>
+                                        <option value="FACULTY" style={{background: '#1e1b4b'}}>Faculty</option>
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <label className="block text-xs font-semibold tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
                                         Full Name
                                     </label>
                                     <Input
@@ -178,7 +200,7 @@ export default function RegisterPage() {
                                 </div>
                             </div>
 
-                            {/* Optional section */}
+                            {/* Optional / Role-specific section */}
                             <div
                                 className="pt-5 mt-2"
                                 style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}
@@ -186,27 +208,48 @@ export default function RegisterPage() {
                                 <div className="flex items-center gap-2 mb-4">
                                     <Zap size={12} className="text-primary-400" />
                                     <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
-                                        Optional Student Details
+                                        {form.role === 'STUDENT' ? 'Optional Student Details' : 'Optional Staff Details'}
                                     </span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Input
-                                        name="rollNo"
-                                        type="text"
-                                        value={form.rollNo}
-                                        onChange={handleChange}
-                                        placeholder="Roll No."
-                                        size="sm"
-                                    />
-                                    <Input
-                                        name="batch"
-                                        type="text"
-                                        value={form.batch}
-                                        onChange={handleChange}
-                                        placeholder="Batch (e.g. A)"
-                                        size="sm"
-                                    />
-                                </div>
+                                {form.role === 'STUDENT' ? (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Input
+                                            name="rollNo"
+                                            type="text"
+                                            value={form.rollNo}
+                                            onChange={handleChange}
+                                            placeholder="Roll No."
+                                            size="sm"
+                                        />
+                                        <Input
+                                            name="batch"
+                                            type="text"
+                                            value={form.batch}
+                                            onChange={handleChange}
+                                            placeholder="Batch (e.g. A)"
+                                            size="sm"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <Input
+                                            name="employeeId"
+                                            type="text"
+                                            value={form.employeeId}
+                                            onChange={handleChange}
+                                            placeholder="Employee ID"
+                                            size="sm"
+                                        />
+                                        <Input
+                                            name="designation"
+                                            type="text"
+                                            value={form.designation}
+                                            onChange={handleChange}
+                                            placeholder="Designation"
+                                            size="sm"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             {/* Error */}
